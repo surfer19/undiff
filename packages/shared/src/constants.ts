@@ -19,3 +19,9 @@ export const RUN_COMMAND_REGEX = /^\/run\s+(all|[A-C](?:\s+[A-C])*)\s*$/im;
 /** Valid option IDs */
 export const OPTION_IDS = ['A', 'B', 'C'] as const;
 export type OptionId = (typeof OPTION_IDS)[number];
+
+/** Regex to parse checkbox state from Sage bot option comments */
+export const CHECKBOX_OPTION_REGEX = /- \[(x| )\] \*\*([A-C])/gi;
+
+/** Regex to extract run ID from embedded HTML comment in bot messages */
+export const RUN_ID_COMMENT_REGEX = /<!-- sage:run:(\w+) -->/;

@@ -1,9 +1,11 @@
 import { nanoid } from 'nanoid';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
 import type { ExploreCommand } from '@sage/shared';
 import { getDb, schema } from '../db/index.js';
 import { getGitHubApp } from '../github/index.js';
+import { parseCheckboxes } from '../github/parse-checkboxes.js';
 import type { Env } from '../config/index.js';
 
 interface WebhookBody {
@@ -111,14 +113,19 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       'Processing review comment event',
     );
 
-    // Only process newly created comments
-    if (body.action !== 'created') {
-      return reply.code(200).send({ ignored: true, reason: `action: ${body.action}` });
-    }
-
-    // Ignore bot comments to prevent loops
+    // Ignore bot comments to prevent loops (applies to both created and edited)
     if (body.comment.user.type === 'Bot') {
       return reply.code(200).send({ ignored: true, reason: 'bot comment' });
+    }
+
+    // ── Handle checkbox edits on Sage bot comments ──────────────────────
+    if (body.action === 'edited' && body.comment.body.startsWith(BOT_COMMENT_PREFIX)) {
+      return handleCheckboxEdit(request, reply, body, env);
+    }
+
+    // Only process newly created comments from here on
+    if (body.action !== 'created') {
+      return reply.code(200).send({ ignored: true, reason: `action: ${body.action}` });
     }
 
     // Parse /explore command
@@ -207,6 +214,7 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
         comment_id: command.commentId,
         body: [
           BOT_COMMENT_PREFIX,
+          `<!-- sage:run:${runId} -->`,
           `🔍 **Exploring:** "${prompt}"`,
           '',
           `Run ID: \`${runId}\``,
@@ -248,4 +256,85 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       return run;
     },
   );
+
+  // ── Checkbox edit handler ───────────────────────────────────────────
+  async function handleCheckboxEdit(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    body: WebhookBody,
+    env: Env,
+  ) {
+    const parsed = parseCheckboxes(body.comment.body);
+
+    if (!parsed) {
+      return reply.code(200).send({ ignored: true, reason: 'not a sage options comment' });
+    }
+
+    const { runId, checkedOptionIds } = parsed;
+
+    if (checkedOptionIds.length === 0) {
+      request.log.info({ runId }, 'Checkbox edit detected but no options checked');
+      return reply.code(200).send({ ignored: true, reason: 'no options checked' });
+    }
+
+    const db = getDb(env.DATABASE_URL);
+
+    const run = await db.query.exploreRuns.findFirst({
+      where: (runs, { eq }) => eq(runs.id, runId),
+    });
+
+    if (!run) {
+      request.log.warn({ runId }, 'Checkbox edit for unknown run');
+      return reply.code(200).send({ ignored: true, reason: 'run not found' });
+    }
+
+    // Guard: only process if run is in options_ready state
+    if (run.status === 'running') {
+      request.log.info({ runId }, 'Ignoring checkbox edit — run is already running');
+      return reply.code(200).send({ ignored: true, reason: 'run already running' });
+    }
+
+    if (run.status !== 'options_ready') {
+      request.log.info({ runId, status: run.status }, 'Ignoring checkbox edit — unexpected status');
+      return reply.code(200).send({ ignored: true, reason: `status: ${run.status}` });
+    }
+
+    // Determine newly selected options (not already in selectedOptionIds)
+    const previouslySelected = (run.selectedOptionIds as string[]) ?? [];
+    const newSelections = checkedOptionIds.filter((id) => !previouslySelected.includes(id));
+
+    if (newSelections.length === 0) {
+      request.log.info({ runId }, 'Checkbox edit detected but no new selections');
+      return reply.code(200).send({ ignored: true, reason: 'no new selections' });
+    }
+
+    // Update run with new selections and transition to running
+    const allSelected = [...new Set([...previouslySelected, ...newSelections])];
+
+    await db
+      .update(schema.exploreRuns)
+      .set({
+        selectedOptionIds: allSelected,
+        status: 'running',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.exploreRuns.id, runId));
+
+    request.log.info(
+      { runId, newSelections, allSelected },
+      'Checkbox selections detected — run updated to running',
+    );
+
+    // TODO (P1 Phase 4): Fire-and-forget orchestrator
+    // runOrchestrator(runId, newSelections, env).catch((err) => {
+    //   request.log.error({ runId, err }, 'Orchestrator failed');
+    // });
+
+    return reply.code(202).send({
+      runId,
+      status: 'running',
+      newSelections,
+      message: 'Checkbox selections received — agents will be dispatched',
+    });
+  }
 }

@@ -33,25 +33,25 @@ Webhook → persist run → 202 Accepted
 
 ### Phase 1: Database & Types
 
-- [ ] **1.1 — Add `solution_branches` Drizzle table** (`packages/api/src/db/schema.ts`)
+- [x] **1.1 — Add `solution_branches` Drizzle table** (`packages/api/src/db/schema.ts`)
   - Columns: `id` (varchar 21, nanoid PK), `run_id` (varchar 21, FK → explore_runs.id), `option_id` (varchar 1), `label` (text), `description` (text), `code` (text — full generated code or unified diff), `new_files` (jsonb — `Record<string, string>`), `pros` (jsonb — `string[]`), `cons` (jsonb — `string[]`), `risk` (varchar 10 — `RiskLevel`), `complexity_delta` (integer), `files_changed` (jsonb — `string[]`), `status` (varchar 20 — `SolutionBranchStatus`), `sandbox` (jsonb — `SandboxResult | null`), `agent_log` (jsonb — `AgentLogEntry[]`), `created_at` (timestamptz, default now), `updated_at` (timestamptz, default now)
   - Approach: Define table in the existing `schema.ts` file alongside `exploreRuns`. Add Drizzle `relations()` for `exploreRuns` → `solutionBranches` (one-to-many).
 
-- [ ] **1.2 — Add `AgentLogEntry` interface to shared types** (`packages/shared/src/types.ts`)
+- [x] **1.2 — Add `AgentLogEntry` interface to shared types** (`packages/shared/src/types.ts`)
   - Shape: `{ step: string, action: string, reasoning: string, outcome: string, durationMs: number }`
   - Add `agentLog: AgentLogEntry[]` to `SolutionBranch` interface
   - Export new type from barrel
 
-- [ ] **1.3 — Generate and run DB migration**
+- [x] **1.3 — Generate and run DB migration**
   - Run `pnpm --filter @sage/api db:generate` to produce SQL migration for `solution_branches` table
   - Run `pnpm --filter @sage/api db:migrate` to apply
   - Verify migration creates FK constraint and proper column types
 
-- [ ] **1.4 — Add `WEB_APP_URL` to env config** (`packages/api/src/config/env.ts`)
+- [x] **1.4 — Add `WEB_APP_URL` to env config** (`packages/api/src/config/env.ts`)
   - Add optional `WEB_APP_URL` field to Zod schema, default `http://localhost:5173`
   - Used by comment formatters to build clickable links
 
-- [ ] **1.5 — Create GitHub Actions CI pipeline** (`.github/workflows/ci.yml`)
+- [x] **1.5 — Create GitHub Actions CI pipeline** (`.github/workflows/ci.yml`)
   - Triggers on every PR and push to `main`
   - Runs: `pnpm install` → `pnpm build` → `pnpm lint` → `pnpm typecheck` → `pnpm test` (when tests exist)
   - Uses Node 22, pnpm 10, with dependency caching
@@ -60,7 +60,7 @@ Webhook → persist run → 202 Accepted
 
 ### Phase 2: Checkbox Interaction Model
 
-- [ ] **2.1 — Expand webhook action filter** (`packages/api/src/routes/webhooks.ts`)
+- [x] **2.1 — Expand webhook action filter** (`packages/api/src/routes/webhooks.ts`)
   - Current: only `action === 'created'` is processed (L108)
   - New logic:
     ```
@@ -70,22 +70,22 @@ Webhook → persist run → 202 Accepted
     ```
   - The `edited` action fires when a user ticks/unticks a checkbox in any GitHub comment. Since Sage's bot comments start with `<!-- sage -->`, we can identify our own comments and parse checkbox state.
 
-- [ ] **2.2 — Embed run ID in bot comments**
+- [x] **2.2 — Embed run ID in bot comments**
   - Add `<!-- sage:run:{runId} -->` as the second line of every bot comment (after `<!-- sage -->`)
   - This allows the `edited` handler to extract the associated `explore_runs` row without guessing based on PR/file context
 
-- [ ] **2.3 — Create checkbox parser** (`packages/api/src/github/parse-checkboxes.ts`)
+- [x] **2.3 — Create checkbox parser** (`packages/api/src/github/parse-checkboxes.ts`)
   - New module exports `parseCheckboxes(commentBody: string): { runId: string, checkedOptionIds: string[] } | null`
   - Uses two regexes:
     - `RUN_ID_COMMENT_REGEX`: `/<!-- sage:run:(\w+) -->/` → extracts runId
     - `CHECKBOX_OPTION_REGEX`: `/- \[(x| )\] \*\*([A-C])/g` → extracts checked state + option ID
   - Returns `null` if the comment isn't a Sage options comment
 
-- [ ] **2.4 — Add checkbox regex patterns to shared constants** (`packages/shared/src/constants.ts`)
+- [x] **2.4 — Add checkbox regex patterns to shared constants** (`packages/shared/src/constants.ts`)
   - `CHECKBOX_OPTION_REGEX = /- \[(x| )\] \*\*([A-C])/gi`
   - `RUN_ID_COMMENT_REGEX = /<!-- sage:run:(\w+) -->/`
 
-- [ ] **2.5 — Wire `edited` handler in webhook route** (`packages/api/src/routes/webhooks.ts`)
+- [x] **2.5 — Wire `edited` handler in webhook route** (`packages/api/src/routes/webhooks.ts`)
   - When `action === 'edited'` and comment is a Sage comment:
     1. Parse checkboxes → get `{ runId, checkedOptionIds }`
     2. Fetch `explore_run` by `runId`
@@ -309,22 +309,22 @@ These are non-negotiable and must pass at every boundary:
 
 ### Phase 1 Boundary: Database & Types
 
-- [ ] `pnpm build` passes — shared types compile, API compiles with new schema
-- [ ] `pnpm --filter @sage/api db:generate` produces a clean migration (no drift)
-- [ ] `pnpm --filter @sage/api db:migrate` applies migration without errors
+- [x] `pnpm build` passes — shared types compile, API compiles with new schema
+- [x] `pnpm --filter @sage/api db:generate` produces a clean migration (no drift)
+- [x] `pnpm --filter @sage/api db:migrate` applies migration without errors
 - [ ] E2E: query `solution_branches` table directly (via `psql` or test script) — verify table exists, columns match spec, FK to `explore_runs` is enforced
 - [ ] E2E: insert a row into `solution_branches` with all fields → read it back → verify jsonb fields round-trip correctly (`agent_log`, `pros`, `cons`, `new_files`, `sandbox`)
-- [ ] Existing `test-webhook.sh` still passes (all 7 scenarios — no regressions)
+- [x] Existing `test-webhook.sh` still passes (all 7 scenarios — no regressions)
 
 ### Phase 2 Boundary: Checkbox Interaction Model
 
-- [ ] `pnpm build` + `pnpm lint` + `pnpm typecheck` pass
+- [x] `pnpm build` + `pnpm lint` + `pnpm typecheck` pass
 - [ ] E2E: send a `pull_request_review_comment` webhook with `action: 'created'` + `/explore` command → still returns 202 (existing flow unbroken)
 - [ ] E2E: send a webhook with `action: 'edited'` + body starting with `<!-- sage -->` containing checked checkboxes → handler detects checkbox changes and responds correctly
 - [ ] E2E: send a webhook with `action: 'edited'` + body that is NOT a Sage comment → returns 200 ignored
 - [ ] E2E: send a webhook with `action: 'edited'` + `user.type: 'Bot'` → returns 200 ignored (loop prevention)
 - [ ] Unit test: `parseCheckboxes()` with unchecked, partially checked, all checked, missing run ID, malformed comment → correct results or `null`
-- [ ] Existing `test-webhook.sh` still passes (all 7 scenarios)
+- [x] Existing `test-webhook.sh` still passes (all 7 scenarios)
 
 ### Phase 3 Boundary: Options Engine
 
