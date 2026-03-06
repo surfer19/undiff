@@ -1,0 +1,44 @@
+{
+  "name": "Sage Dev",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "mikestead.dotenv"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.preferences.importModuleSpecifier": "relative"
+      }
+    }
+  },
+
+  "forwardPorts": [4000, 5432],
+  "portsAttributes": {
+    "4000": { "label": "API Server", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" }
+  },
+
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@10.30.3 --activate && CI=true pnpm install && cp -n .env.example .env 2>/dev/null; pnpm db:migrate || true",
+
+  "remoteEnv": {
+    "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/next_review",
+    "NODE_ENV": "development",
+    "PORT": "4000",
+    "HOST": "0.0.0.0",
+    "LOG_LEVEL": "info"
+  }
+}

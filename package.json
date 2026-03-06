@@ -5,6 +5,8 @@
   "description": "Sage - Multi-Agent Solution Explorer for GitHub Code Review",
   "scripts": {
     "dev": "turbo dev",
+    "dev:up": "podman compose --profile tunnel up -d --wait && turbo dev",
+    "dev:down": "podman compose --profile tunnel down",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write .",

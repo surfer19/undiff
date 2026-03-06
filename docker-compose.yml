@@ -16,5 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  smee:
+    image: node:22-alpine
+    container_name: sage-smee
+    restart: unless-stopped
+    entrypoint:
+      - sh
+      - -c
+      - npx smee-client@5 --url "$$SMEE_URL" --target http://host.containers.internal:$$TARGET_PORT/webhooks/github
+    environment:
+      SMEE_URL: ${SMEE_URL:-https://smee.io/new}
+      TARGET_PORT: ${PORT:-4000}
+    profiles:
+      - tunnel
+
 volumes:
   pgdata:
