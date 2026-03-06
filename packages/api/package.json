@@ -19,6 +19,7 @@
     "@ai-sdk/anthropic": "^1.0.0",
     "@fastify/cors": "^11.0.0",
     "@fastify/env": "^5.0.0",
+    "@sage/ai": "workspace:*",
     "@sage/shared": "workspace:*",
     "ai": "^4.0.0",
     "dotenv": "^17.3.1",

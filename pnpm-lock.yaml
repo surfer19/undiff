@@ -33,6 +33,31 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
 
+  packages/ai:
+    dependencies:
+      '@ai-sdk/anthropic':
+        specifier: ^1.0.0
+        version: 1.2.12(zod@3.25.76)
+      '@sage/shared':
+        specifier: workspace:*
+        version: link:../shared
+      ai:
+        specifier: ^4.0.0
+        version: 4.3.19(react@19.2.4)(zod@3.25.76)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.13
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/api:
     dependencies:
       '@ai-sdk/anthropic':
@@ -44,6 +69,9 @@ importers:
       '@fastify/env':
         specifier: ^5.0.0
         version: 5.0.3
+      '@sage/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@sage/shared':
         specifier: workspace:*
         version: link:../shared

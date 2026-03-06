@@ -4,8 +4,10 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
 import type { ExploreCommand } from '@sage/shared';
 import { getDb, schema } from '../db/index.js';
+import { updateRunStatus } from '../db/helpers.js';
 import { getGitHubApp } from '../github/index.js';
 import { parseCheckboxes } from '../github/parse-checkboxes.js';
+import { runOptionsEngine, runOrchestrator } from '../ai/orchestrator.js';
 import type { Env } from '../config/index.js';
 
 interface WebhookBody {
@@ -143,18 +145,66 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       return reply.code(400).send({ error: 'Missing installation ID' });
     }
 
-    // Handle /run command (P1 — stub for now)
+    // Handle /run command
     if (runMatch?.[1]) {
       const selection = runMatch[1].trim();
       const selectedIds = selection === 'all' ? ['A', 'B', 'C'] : selection.split(/\s+/);
 
-      request.log.info({ selectedIds, deliveryId }, '/run command received (P1 stub)');
+      request.log.info({ selectedIds, deliveryId }, '/run command received');
 
-      // TODO (P1): Look up the most recent run for this PR/file,
-      // update selectedOptionIds, and kick off agents
+      const db = getDb(env.DATABASE_URL);
+
+      // Find the most recent options_ready run for this PR + file
+      const runs = await db.query.exploreRuns.findMany({
+        where: (r, { eq, and }) =>
+          and(eq(r.filePath, body.comment.path), eq(r.status, 'options_ready' as const)),
+        orderBy: (r, { desc }) => [desc(r.createdAt)],
+        limit: 5,
+      });
+
+      // Filter to matching PR
+      const run = runs.find((r) => {
+        const pr = r.prRef as { owner: string; repo: string; number: number };
+        return (
+          pr.owner === body.repository.owner.login &&
+          pr.repo === body.repository.name &&
+          pr.number === body.pull_request.number
+        );
+      });
+
+      if (!run) {
+        return reply.code(200).send({
+          ignored: true,
+          reason: 'no options_ready run found for this PR/file',
+        });
+      }
+
+      // Validate selected IDs exist in run.options
+      const validOptions = (run.options as Array<{ id: string }>).map((o) => o.id);
+      const validSelected = selectedIds.filter((id) => validOptions.includes(id));
+
+      if (validSelected.length === 0) {
+        return reply.code(200).send({
+          ignored: true,
+          reason: 'no valid option IDs in /run command',
+        });
+      }
+
+      // Update run and kick off orchestrator
+      await updateRunStatus(db, run.id, 'running', {
+        selectedOptionIds: validSelected,
+      });
+
+      // Fire-and-forget
+      runOrchestrator(run.id, validSelected, env).catch((err) => {
+        request.log.error({ runId: run.id, err }, 'Orchestrator failed');
+      });
+
       return reply.code(202).send({
-        message: '/run command acknowledged — agent execution coming in P1',
-        selectedIds,
+        runId: run.id,
+        status: 'running',
+        selectedIds: validSelected,
+        message: '/run command accepted - agents dispatched',
       });
     }
 
@@ -228,8 +278,10 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       // Don't fail the webhook — the run is already persisted
     }
 
-    // TODO (P1): Kick off the Options Engine asynchronously here
-    // await enqueueOptionsGeneration(runId);
+    // Fire-and-forget: kick off the Options Engine asynchronously
+    runOptionsEngine(runId, env).catch((err) => {
+      request.log.error({ runId, err }, 'Options engine failed');
+    });
 
     return reply.code(202).send({
       runId,
@@ -325,10 +377,10 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       'Checkbox selections detected — run updated to running',
     );
 
-    // TODO (P1 Phase 4): Fire-and-forget orchestrator
-    // runOrchestrator(runId, newSelections, env).catch((err) => {
-    //   request.log.error({ runId, err }, 'Orchestrator failed');
-    // });
+    // Fire-and-forget: kick off the orchestrator for selected options
+    runOrchestrator(runId, newSelections, env).catch((err) => {
+      request.log.error({ runId, err }, 'Orchestrator failed');
+    });
 
     return reply.code(202).send({
       runId,
