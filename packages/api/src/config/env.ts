@@ -14,6 +14,7 @@ const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().min(1),
   DATABASE_URL: z.string().url(),
   ANTHROPIC_API_KEY: z.string().min(1),
+  WEB_APP_URL: z.string().url().default('http://localhost:5173'),
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -46,14 +47,13 @@ export function loadEnv(): Env {
     } catch (err) {
       throw new Error(
         `Failed to read GITHUB_PRIVATE_KEY_PATH (${data.GITHUB_PRIVATE_KEY_PATH}): ${(err as Error).message}`,
+        { cause: err },
       );
     }
   }
 
   if (!privateKey) {
-    throw new Error(
-      'Either GITHUB_PRIVATE_KEY or GITHUB_PRIVATE_KEY_PATH must be set',
-    );
+    throw new Error('Either GITHUB_PRIVATE_KEY or GITHUB_PRIVATE_KEY_PATH must be set');
   }
 
   return {

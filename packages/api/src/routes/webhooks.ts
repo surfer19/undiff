@@ -101,7 +101,15 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
 
     const body = request.body as WebhookBody;
 
-    request.log.info({ action: body.action, comment: body.comment?.body, user: body.comment?.user?.login, deliveryId }, 'Processing review comment event');
+    request.log.info(
+      {
+        action: body.action,
+        comment: body.comment?.body,
+        user: body.comment?.user?.login,
+        deliveryId,
+      },
+      'Processing review comment event',
+    );
 
     // Only process newly created comments
     if (body.action !== 'created') {

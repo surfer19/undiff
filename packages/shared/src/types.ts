@@ -57,6 +57,16 @@ export interface ExplorationOption {
   preferredReason?: string;
 }
 
+// ─── Agent Log ──────────────────────────────────────────────────────────────
+
+export interface AgentLogEntry {
+  step: string;
+  action: string;
+  reasoning: string;
+  outcome: string;
+  durationMs: number;
+}
+
 // ─── Solution Branch ────────────────────────────────────────────────────────
 
 export type SolutionBranchStatus =
@@ -70,6 +80,8 @@ export interface SolutionBranch {
   id: string;
   runId: string;
   optionId: string;
+  label: string;
+  description: string;
   code: string;
   newFiles: Record<string, string>;
   pros: string[];
@@ -79,6 +91,9 @@ export interface SolutionBranch {
   filesChanged: string[];
   status: SolutionBranchStatus;
   sandbox: SandboxResult | null;
+  agentLog: AgentLogEntry[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ─── Sandbox Result ─────────────────────────────────────────────────────────
