@@ -97,11 +97,11 @@ Webhook → persist run → 202 Accepted
 
 ### Phase 3: Options Engine
 
-- [ ] **3.1 — Create AI provider singleton** (`packages/api/src/ai/index.ts`)
+- [x] **3.1 — Create AI provider singleton** (`packages/ai/src/provider.ts` — moved to `@sage/ai` package)
   - Initialize `createAnthropic({ apiKey })` from `@ai-sdk/anthropic`
   - Export `getAIProvider(apiKey: string)` as a lazy singleton (same pattern as `getGitHubApp` and `getDb`)
 
-- [ ] **3.2 — Create Options Engine** (`packages/api/src/ai/options-engine.ts`)
+- [x] **3.2 — Create Options Engine** (`packages/ai/src/options-engine.ts` — pure function in `@sage/ai`)
   - Exports: `generateOptions(run: ExploreRun, env: Env): Promise<ExplorationOption[]>`
   - Steps:
     1. Get installation Octokit for the PR's `installationId`
@@ -120,11 +120,11 @@ Webhook → persist run → 202 Accepted
     6. Return the validated options array
   - Error handling: catch Anthropic errors, wrap in a domain error with context
 
-- [ ] **3.3 — Create DB status-update helper** (`packages/api/src/db/helpers.ts`)
+- [x] **3.3 — Create DB status-update helper** (`packages/api/src/db/helpers.ts`)
   - `updateRunStatus(db, runId, status, extraFields?)` — single UPDATE that sets `status` + `updated_at = new Date()` + optional extra columns (e.g., `options`, `selected_option_ids`)
   - Used everywhere status transitions happen — keeps updates consistent
 
-- [ ] **3.4 — Wire Options Engine to explore handler** (`packages/api/src/routes/webhooks.ts`)
+- [x] **3.4 — Wire Options Engine to explore handler** (`packages/api/src/routes/webhooks.ts`)
   - Replace the TODO at ~L220 (`// TODO (P1): Kick off the Options Engine`)
   - Implementation:
     ```typescript
@@ -139,7 +139,7 @@ Webhook → persist run → 202 Accepted
     3. On success: store `options` in DB, update status → `'options_ready'`, post options comment
     4. On failure: update status → `'failed'`, post error comment to PR
 
-- [ ] **3.5 — Create options comment formatter** (`packages/api/src/github/comments.ts`)
+- [x] **3.5 — Create options comment formatter** (`packages/api/src/github/comments.ts`)
   - `buildOptionsComment(runId, prompt, options): string`
   - Produces:
 
@@ -165,7 +165,7 @@ Webhook → persist run → 202 Accepted
 
 ### Phase 4: Branch Agents
 
-- [ ] **4.1 — Create Branch Agent** (`packages/api/src/ai/branch-agent.ts`)
+- [x] **4.1 — Create Branch Agent** (`packages/ai/src/branch-agent.ts` — pure function in `@sage/ai`)
   - Exports: `runBranchAgent(run: ExploreRun, option: ExplorationOption, env: Env): Promise<SolutionBranch>`
   - Steps:
     1. Insert `solution_branches` row with status `'generating'`
@@ -181,7 +181,7 @@ Webhook → persist run → 202 Accepted
     7. On failure: update status → `'failed'`, log error
   - Timeout: wrap the AI call with `AbortController` + `SANDBOX_TIMEOUT_MS` (120s)
 
-- [ ] **4.2 — Create Orchestrator** (`packages/api/src/ai/orchestrator.ts`)
+- [x] **4.2 — Create Orchestrator** (`packages/api/src/ai/orchestrator.ts`)
   - Exports: `runOrchestrator(runId: string, optionIds: string[], env: Env): Promise<void>`
   - Steps:
     1. Fetch `explore_run` from DB
@@ -192,7 +192,7 @@ Webhook → persist run → 202 Accepted
     6. If any completed: update run status → `'completed'`, post results comment
   - This is the function called from both the checkbox `edited` handler and the `/run` command handler
 
-- [ ] **4.3 — Create results comment formatter** (`packages/api/src/github/comments.ts`)
+- [x] **4.3 — Create results comment formatter** (`packages/api/src/github/comments.ts`)
   - `buildResultsComment(runId, branches: SolutionBranch[], webAppUrl: string): string`
   - Produces:
 
@@ -216,7 +216,7 @@ Webhook → persist run → 202 Accepted
     💡 **Recommendation:** Option A offers the best balance of impact and risk.
     ```
 
-- [ ] **4.4 — Wire `/run` command to orchestrator** (`packages/api/src/routes/webhooks.ts`)
+- [x] **4.4 — Wire `/run` command to orchestrator** (`packages/api/src/routes/webhooks.ts`)
   - Replace the `/run` stub (L132–148):
     1. Find the most recent `explore_run` for this PR + file where status is `'options_ready'`
     2. Validate selected IDs exist in `run.options`
