@@ -51,3 +51,6 @@ playwright-report/
 # Temp
 tmp/
 temp/
+
+# Playwright browsers
+playwright/
