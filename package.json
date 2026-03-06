@@ -11,7 +11,10 @@
     "lint": "turbo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "turbo test",
     "typecheck": "turbo typecheck",
+    "knip": "knip",
+    "audit": "pnpm audit --audit-level=high",
     "db:generate": "turbo db:generate --filter=@sage/api",
     "db:migrate": "turbo db:migrate --filter=@sage/api",
     "db:studio": "pnpm --filter @sage/api db:studio"
@@ -32,10 +35,12 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.19.13",
     "eslint": "^10.0.2",
+    "knip": "^5.85.0",
     "prettier": "^3.8.1",
     "turbo": "^2.8.13",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18",
     "zod": "^3.25.76"
   }
 }
