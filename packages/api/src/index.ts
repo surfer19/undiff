@@ -8,8 +8,11 @@ config({ path: resolve(__dirname, '../../../.env') });
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { loadEnv } from './config/index.js';
-import { registerWebhookRoutes } from './routes/index.js';
+import { registerWebhookRoutes, registerExploreRoutes } from './routes/index.js';
+import { appRouter } from './trpc/index.js';
+import type { TRPCContext } from './trpc/index.js';
 
 // Augment Fastify request with rawBody for webhook signature verification
 declare module 'fastify' {
@@ -59,6 +62,16 @@ async function main() {
 
   // Register routes
   registerWebhookRoutes(app, env);
+  registerExploreRoutes(app, env);
+
+  // Register tRPC
+  await app.register(fastifyTRPCPlugin, {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: appRouter,
+      createContext: (): TRPCContext => ({ env }),
+    },
+  });
 
   // Graceful shutdown
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
