@@ -158,7 +158,9 @@ export async function runOrchestrator(
   selectedOptionIds: string[],
   env: Env,
 ): Promise<void> {
-  console.log(`[orchestrator] ▶ runOrchestrator started for run ${runId} (options: ${selectedOptionIds.join(', ')})`);
+  console.log(
+    `[orchestrator] ▶ runOrchestrator started for run ${runId} (options: ${selectedOptionIds.join(', ')})`,
+  );
   const db = getDb(env.DATABASE_URL);
 
   // Fetch the run
@@ -187,7 +189,9 @@ export async function runOrchestrator(
     return;
   }
 
-  console.log(`[orchestrator] matched ${options.length} option(s): ${options.map((o) => o.label).join(', ')}`);
+  console.log(
+    `[orchestrator] matched ${options.length} option(s): ${options.map((o) => o.label).join(', ')}`,
+  );
 
   // Fetch file content
   const fileContent = await fetchFileContent(

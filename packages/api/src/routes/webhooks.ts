@@ -135,7 +135,10 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
     const runMatch = RUN_COMMAND_REGEX.exec(body.comment.body);
 
     if (!exploreMatch && !runMatch?.[1]) {
-      request.log.info({ deliveryId, comment: body.comment.body }, 'Ignoring comment: no /explore or /run command');
+      request.log.info(
+        { deliveryId, comment: body.comment.body },
+        'Ignoring comment: no /explore or /run command',
+      );
       return reply.code(200).send({ ignored: true, reason: 'no /explore or /run command' });
     }
 
@@ -217,7 +220,10 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       'General review of this code region';
 
     if (!exploreMatch?.[1] && !exploreMatch?.[2] && !exploreMatch?.[3]) {
-      request.log.info({ deliveryId, runPrompt: prompt }, 'Explore command used without explicit prompt, using default prompt');
+      request.log.info(
+        { deliveryId, runPrompt: prompt },
+        'Explore command used without explicit prompt, using default prompt',
+      );
     }
 
     // Build the explore command

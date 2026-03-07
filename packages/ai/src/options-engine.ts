@@ -70,7 +70,10 @@ function buildUserPrompt(input: OptionsEngineInput, maxInputChars: number): stri
   const lines = input.fileContent.split('\n');
   const contextStart = Math.max(0, input.lineRange.start - 10);
   const contextEnd = Math.min(lines.length, input.lineRange.end + 10);
-  const focusedContext = trimForPrompt(lines.slice(contextStart, contextEnd).join('\n'), maxInputChars);
+  const focusedContext = trimForPrompt(
+    lines.slice(contextStart, contextEnd).join('\n'),
+    maxInputChars,
+  );
   const trimmedDiffHunk = trimForPrompt(input.diffHunk, Math.floor(maxInputChars / 2));
 
   let prompt = `## File: ${input.filePath}
