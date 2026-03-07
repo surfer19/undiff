@@ -19,7 +19,7 @@ jobs:
   # CI Quality — format check + dead code detection (Knip)
   # ═════════════════════════════════════════════════════════════════════════
   quality:
-    name: "CI Quality / format · knip"
+    name: 'CI Quality / format · knip'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -39,7 +39,7 @@ jobs:
   # CI Security — dependency vulnerability audit
   # ═════════════════════════════════════════════════════════════════════════
   security:
-    name: "CI Security / audit"
+    name: 'CI Security / audit'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -57,7 +57,7 @@ jobs:
   # CI Shared — lint · typecheck · test
   # ═════════════════════════════════════════════════════════════════════════
   shared:
-    name: "CI Shared / ${{ matrix.task }}"
+    name: 'CI Shared / ${{ matrix.task }}'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -81,7 +81,7 @@ jobs:
   # CI AI — lint · typecheck · test
   # ═════════════════════════════════════════════════════════════════════════
   ai:
-    name: "CI AI / ${{ matrix.task }}"
+    name: 'CI AI / ${{ matrix.task }}'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -105,7 +105,7 @@ jobs:
   # CI API — lint · typecheck · test
   # ═════════════════════════════════════════════════════════════════════════
   api:
-    name: "CI API / ${{ matrix.task }}"
+    name: 'CI API / ${{ matrix.task }}'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -129,7 +129,7 @@ jobs:
   # CI Web — lint · typecheck · test · build · e2e
   # ═════════════════════════════════════════════════════════════════════════
   web-checks:
-    name: "CI Web / ${{ matrix.task }}"
+    name: 'CI Web / ${{ matrix.task }}'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -150,7 +150,7 @@ jobs:
         run: pnpm --filter @sage/web ${{ matrix.task }}
 
   web-build:
-    name: "CI Web / build"
+    name: 'CI Web / build'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -171,7 +171,7 @@ jobs:
           retention-days: 1
 
   web-e2e:
-    name: "CI Web / e2e"
+    name: 'CI Web / e2e'
     needs: [web-build]
     runs-on: ubuntu-latest
     timeout-minutes: 10

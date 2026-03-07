@@ -14,11 +14,7 @@
       "ignoreDependencies": ["pino-pretty", "@ai-sdk/anthropic", "@fastify/env", "ai", "pino"]
     },
     "packages/web": {
-      "ignoreDependencies": [
-        "@sage/api",
-        "@testing-library/react",
-        "@testing-library/jest-dom"
-      ]
+      "ignoreDependencies": ["@sage/api", "@testing-library/react", "@testing-library/jest-dom"]
     }
   }
 }

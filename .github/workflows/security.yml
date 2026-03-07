@@ -1,4 +1,4 @@
-name: "Security"
+name: 'Security'
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main]
   schedule:
     # Run weekly on Monday at 06:00 UTC to catch new advisories
-    - cron: "0 6 * * 1"
+    - cron: '0 6 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,7 +18,7 @@ jobs:
   # Dependency Audit — pnpm audit for known CVEs
   # ═════════════════════════════════════════════════════════════════════════
   dependency-audit:
-    name: "Security / dependency-audit"
+    name: 'Security / dependency-audit'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -36,7 +36,7 @@ jobs:
   # CodeQL — GitHub's free SAST (static analysis security testing)
   # ═════════════════════════════════════════════════════════════════════════
   codeql:
-    name: "Security / CodeQL (${{ matrix.language }})"
+    name: 'Security / CodeQL (${{ matrix.language }})'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -59,4 +59,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'
