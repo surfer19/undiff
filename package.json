@@ -17,7 +17,17 @@
     "audit": "pnpm audit --audit-level=high",
     "db:generate": "turbo db:generate --filter=@sage/api",
     "db:migrate": "turbo db:migrate --filter=@sage/api",
-    "db:studio": "pnpm --filter @sage/api db:studio"
+    "db:studio": "pnpm --filter @sage/api db:studio",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml,css}": [
+      "prettier --write"
+    ]
   },
   "keywords": [
     "code-review",
@@ -35,7 +45,9 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.19.13",
     "eslint": "^10.0.2",
+    "husky": "^9.1.7",
     "knip": "^5.85.0",
+    "lint-staged": "^16.3.2",
     "prettier": "^3.8.1",
     "turbo": "^2.8.13",
     "typescript": "^5.9.3",
