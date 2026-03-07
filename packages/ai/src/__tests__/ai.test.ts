@@ -13,7 +13,7 @@ vi.mock('@ai-sdk/anthropic', () => ({
 
 describe('@sage/ai', () => {
   it('exports are importable', async () => {
-    const mod = await import('../index');
+    const mod = await import('../index.js');
     expect(mod).toBeDefined();
   });
 });
