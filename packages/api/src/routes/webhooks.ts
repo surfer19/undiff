@@ -290,25 +290,6 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
     });
   });
 
-  // GET explore run status (for future polling)
-  app.get(
-    '/api/explore/:runId',
-    async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
-      const { runId } = request.params;
-      const db = getDb(env.DATABASE_URL);
-
-      const run = await db.query.exploreRuns.findFirst({
-        where: (runs, { eq }) => eq(runs.id, runId),
-      });
-
-      if (!run) {
-        return reply.code(404).send({ error: 'Run not found' });
-      }
-
-      return run;
-    },
-  );
-
   // ── Checkbox edit handler ───────────────────────────────────────────
   async function handleCheckboxEdit(
     request: FastifyRequest,
