@@ -11,7 +11,7 @@ vi.mock('drizzle-orm/postgres-js', () => ({
 
 describe('@sage/api', () => {
   it('config module is importable', async () => {
-    const mod = await import('../config/env');
+    const mod = await import('../config/env.js');
     expect(mod).toBeDefined();
   });
 });
