@@ -9,6 +9,13 @@ import { getGitHubApp } from '../github/index.js';
 import { buildResultsComment, buildErrorComment } from '../github/comments.js';
 import type { Env } from '../config/index.js';
 
+function sanitizeLogValue(value: string): string {
+  return value
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '?')
+    .slice(0, 300);
+}
+
 /**
  * Fetch file content from GitHub via the installation Octokit.
  */
@@ -46,7 +53,8 @@ async function fetchFileContent(
  * 5. Post options comment to PR
  */
 export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
-  console.log(`[orchestrator] ▶ runOptionsEngine started for run ${runId}`);
+  const safeRunId = sanitizeLogValue(runId);
+  console.log('[orchestrator] runOptionsEngine started', { runId: safeRunId });
   const db = getDb(env.DATABASE_URL);
   const { generateOptions } = await import('@sage/ai');
 
@@ -56,7 +64,7 @@ export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
   });
 
   if (!run) {
-    console.error(`[orchestrator] ✗ run ${runId} not found in DB`);
+    console.error('[orchestrator] run not found in DB', { runId: safeRunId });
     throw new Error(`Explore run ${runId} not found`);
   }
 
@@ -69,11 +77,15 @@ export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
 
   // Transition to analyzing
   await updateRunStatus(db, runId, 'analyzing');
-  console.log(`[orchestrator] run ${runId} → status: analyzing`);
+  console.log('[orchestrator] status updated', { runId: safeRunId, status: 'analyzing' });
 
   try {
     // Fetch file content from GitHub
-    console.log(`[orchestrator] fetching file content: ${run.filePath} (ref: ${run.headRef})`);
+    console.log('[orchestrator] fetching file content', {
+      runId: safeRunId,
+      filePath: sanitizeLogValue(run.filePath),
+      headRef: sanitizeLogValue(run.headRef),
+    });
     const fileContent = await fetchFileContent(
       env,
       prRef.installationId,
@@ -83,10 +95,13 @@ export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
       run.headRef,
     );
 
-    console.log(`[orchestrator] file fetched (${fileContent.length} chars)`);
+    console.log('[orchestrator] file fetched', {
+      runId: safeRunId,
+      fileContentLength: fileContent.length,
+    });
 
     // Generate options via AI
-    console.log(`[orchestrator] calling AI to generate options for run ${runId}…`);
+    console.log('[orchestrator] calling AI to generate options', { runId: safeRunId });
     const options = await generateOptions(
       {
         fileContent,
@@ -102,18 +117,21 @@ export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
         maxOutputTokens: env.AI_OPTIONS_MAX_TOKENS,
       },
     );
-    console.log(`[orchestrator] AI returned ${options.length} options for run ${runId}`);
+    console.log('[orchestrator] AI returned options', {
+      runId: safeRunId,
+      optionCount: options.length,
+    });
 
     // Store options and transition to options_ready
     await updateRunStatus(db, runId, 'options_ready', { options });
-    console.log(`[orchestrator] run ${runId} → status: options_ready`);
+    console.log('[orchestrator] status updated', { runId: safeRunId, status: 'options_ready' });
 
     // Post options comment to PR
     const { buildOptionsComment } = await import('../github/comments.js');
     const githubApp = getGitHubApp(env);
     const octokit = await githubApp.getInstallationOctokit(prRef.installationId);
 
-    console.log(`[orchestrator] posting options comment to PR for run ${runId}`);
+    console.log('[orchestrator] posting options comment', { runId: safeRunId });
     await octokit.rest.pulls.createReplyForReviewComment({
       owner: prRef.owner,
       repo: prRef.repo,
@@ -121,10 +139,13 @@ export async function runOptionsEngine(runId: string, env: Env): Promise<void> {
       comment_id: run.commentId,
       body: buildOptionsComment(runId, run.prompt || undefined, options),
     });
-    console.log(`[orchestrator] ✔ runOptionsEngine completed for run ${runId}`);
+    console.log('[orchestrator] runOptionsEngine completed', { runId: safeRunId });
   } catch (err) {
     // Transition to failed and post error comment
-    console.error(`[orchestrator] ✗ runOptionsEngine failed for run ${runId}:`, err);
+    console.error('[orchestrator] runOptionsEngine failed', {
+      runId: safeRunId,
+      error: err,
+    });
     await updateRunStatus(db, runId, 'failed');
 
     try {
@@ -158,9 +179,12 @@ export async function runOrchestrator(
   selectedOptionIds: string[],
   env: Env,
 ): Promise<void> {
-  console.log(
-    `[orchestrator] ▶ runOrchestrator started for run ${runId} (options: ${selectedOptionIds.join(', ')})`,
-  );
+  const safeRunId = sanitizeLogValue(runId);
+  const safeSelectedOptionIds = selectedOptionIds.map((id) => sanitizeLogValue(id));
+  console.log('[orchestrator] runOrchestrator started', {
+    runId: safeRunId,
+    selectedOptionIds: safeSelectedOptionIds,
+  });
   const db = getDb(env.DATABASE_URL);
 
   // Fetch the run
@@ -169,7 +193,7 @@ export async function runOrchestrator(
   });
 
   if (!run) {
-    console.error(`[orchestrator] ✗ run ${runId} not found in DB`);
+    console.error('[orchestrator] run not found in DB', { runId: safeRunId });
     throw new Error(`Explore run ${runId} not found`);
   }
 
@@ -184,14 +208,16 @@ export async function runOrchestrator(
   );
 
   if (options.length === 0) {
-    console.warn(`[orchestrator] ✗ no matching options for run ${runId}, marking failed`);
+    console.warn('[orchestrator] no matching options; marking failed', { runId: safeRunId });
     await updateRunStatus(db, runId, 'failed');
     return;
   }
 
-  console.log(
-    `[orchestrator] matched ${options.length} option(s): ${options.map((o) => o.label).join(', ')}`,
-  );
+  console.log('[orchestrator] matched options', {
+    runId: safeRunId,
+    optionCount: options.length,
+    optionLabels: options.map((o) => sanitizeLogValue(o.label)),
+  });
 
   // Fetch file content
   const fileContent = await fetchFileContent(
@@ -219,7 +245,10 @@ export async function runOrchestrator(
   }
 
   // Run branch agents in parallel
-  console.log(`[orchestrator] dispatching ${options.length} branch agent(s) in parallel…`);
+  console.log('[orchestrator] dispatching branch agents', {
+    runId: safeRunId,
+    branchAgentCount: options.length,
+  });
   const results = await Promise.allSettled(
     options.map((option) =>
       runBranchAgent(
@@ -243,7 +272,11 @@ export async function runOrchestrator(
   // Persist results
   const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
   const rejected = results.filter((r) => r.status === 'rejected').length;
-  console.log(`[orchestrator] branch agents done: ${fulfilled} completed, ${rejected} failed`);
+  console.log('[orchestrator] branch agents completed', {
+    runId: safeRunId,
+    completedCount: fulfilled,
+    failedCount: rejected,
+  });
 
   const completedBranches: Array<BranchAgentOutput & { id: string }> = [];
   for (let i = 0; i < results.length; i++) {
@@ -286,7 +319,10 @@ export async function runOrchestrator(
   const anyCompleted = completedBranches.length > 0;
   const finalStatus = anyCompleted ? 'completed' : 'failed';
   await updateRunStatus(db, runId, finalStatus);
-  console.log(`[orchestrator] run ${runId} → status: ${finalStatus}`);
+  console.log('[orchestrator] status updated', {
+    runId: safeRunId,
+    status: finalStatus,
+  });
 
   // Fetch all branches for this run to build the results comment
   const allBranches = await db.query.solutionBranches.findMany({
@@ -336,8 +372,11 @@ export async function runOrchestrator(
         body: buildErrorComment(runId, 'All branch analyses failed. Please try again.'),
       });
     }
-    console.log(`[orchestrator] ✔ runOrchestrator completed for run ${runId}`);
+    console.log('[orchestrator] runOrchestrator completed', { runId: safeRunId });
   } catch (err) {
-    console.error(`[orchestrator] ✗ failed to post results comment for run ${runId}:`, err);
+    console.error('[orchestrator] failed to post results comment', {
+      runId: safeRunId,
+      error: err,
+    });
   }
 }

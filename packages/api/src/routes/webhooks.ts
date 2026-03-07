@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
+import { RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
 import type { ExploreCommand } from '@sage/shared';
 import { getDb, schema } from '../db/index.js';
 import { updateRunStatus } from '../db/helpers.js';
@@ -44,6 +44,57 @@ interface WebhookBody {
   };
   installation?: {
     id: number;
+  };
+}
+
+function parseExploreCommand(commentBody: string): {
+  matched: boolean;
+  hasExplicitPrompt: boolean;
+  prompt?: string;
+} {
+  const trimmed = commentBody.trim();
+
+  if (!trimmed.startsWith('/explore')) {
+    return { matched: false, hasExplicitPrompt: false };
+  }
+
+  const remainder = trimmed.slice('/explore'.length);
+
+  // Ensure command boundary: '/exploreX' is not a valid command.
+  if (
+    remainder.length > 0 &&
+    remainder[0] !== ' ' &&
+    remainder[0] !== '\t' &&
+    remainder[0] !== '\n'
+  ) {
+    return { matched: false, hasExplicitPrompt: false };
+  }
+
+  const promptText = remainder.trim();
+  if (!promptText) {
+    return { matched: true, hasExplicitPrompt: false };
+  }
+
+  if (promptText.startsWith('"') && promptText.endsWith('"') && promptText.length >= 2) {
+    return {
+      matched: true,
+      hasExplicitPrompt: true,
+      prompt: promptText.slice(1, -1).trim(),
+    };
+  }
+
+  if (promptText.startsWith('“') && promptText.endsWith('”') && promptText.length >= 2) {
+    return {
+      matched: true,
+      hasExplicitPrompt: true,
+      prompt: promptText.slice(1, -1).trim(),
+    };
+  }
+
+  return {
+    matched: true,
+    hasExplicitPrompt: true,
+    prompt: promptText,
   };
 }
 
@@ -131,10 +182,10 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
     }
 
     // Parse /explore command
-    const exploreMatch = EXPLORE_COMMAND_REGEX.exec(body.comment.body);
+    const exploreCommand = parseExploreCommand(body.comment.body);
     const runMatch = RUN_COMMAND_REGEX.exec(body.comment.body);
 
-    if (!exploreMatch && !runMatch?.[1]) {
+    if (!exploreCommand.matched && !runMatch?.[1]) {
       request.log.info(
         { deliveryId, comment: body.comment.body },
         'Ignoring comment: no /explore or /run command',
@@ -213,13 +264,9 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
     }
 
     // Handle /explore command
-    const prompt =
-      exploreMatch?.[1]?.trim() ||
-      exploreMatch?.[2]?.trim() ||
-      exploreMatch?.[3]?.trim() ||
-      'General review of this code region';
+    const prompt = exploreCommand.prompt || 'General review of this code region';
 
-    if (!exploreMatch?.[1] && !exploreMatch?.[2] && !exploreMatch?.[3]) {
+    if (!exploreCommand.hasExplicitPrompt) {
       request.log.info(
         { deliveryId, runPrompt: prompt },
         'Explore command used without explicit prompt, using default prompt',
