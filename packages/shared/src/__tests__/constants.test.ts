@@ -76,6 +76,13 @@ describe('RUN_ID_COMMENT_REGEX', () => {
     expect(match).not.toBeNull();
     expect(match![1]).toBe('run_abc123');
   });
+
+  it('extracts run ID with hyphens (nanoid-style)', () => {
+    const body = '<!-- sage:run:hbo_5CcZ9BjE-glXMGQgq -->';
+    const match = body.match(RUN_ID_COMMENT_REGEX);
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe('hbo_5CcZ9BjE-glXMGQgq');
+  });
 });
 
 describe('constants', () => {

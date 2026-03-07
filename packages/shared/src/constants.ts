@@ -24,4 +24,4 @@ export type OptionId = (typeof OPTION_IDS)[number];
 export const CHECKBOX_OPTION_REGEX = /- \[(x| )\] \*\*([A-C])/gi;
 
 /** Regex to extract run ID from embedded HTML comment in bot messages */
-export const RUN_ID_COMMENT_REGEX = /<!-- sage:run:(\w+) -->/;
+export const RUN_ID_COMMENT_REGEX = /<!-- sage:run:([\w-]+) -->/;
