@@ -11,7 +11,8 @@ export const WEBHOOK_ACK_TIMEOUT_MS = 10_000;
 export const BOT_COMMENT_PREFIX = '<!-- sage -->';
 
 /** Regex to parse /explore commands from PR review comments */
-export const EXPLORE_COMMAND_REGEX = /^\/explore\s+["""\u201C\u201D](.+)["""\u201C\u201D]\s*$/im;
+export const EXPLORE_COMMAND_REGEX =
+	/^\/explore(?:\s+(?:"([^"]+)"|“([^”]+)”|(.+)))?\s*$/im;
 
 /** Regex to parse /run commands */
 export const RUN_COMMAND_REGEX = /^\/run\s+(all|[A-C](?:\s+[A-C])*)\s*$/im;

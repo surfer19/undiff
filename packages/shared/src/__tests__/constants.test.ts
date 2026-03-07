@@ -20,13 +20,20 @@ describe('EXPLORE_COMMAND_REGEX', () => {
     const input = '/explore \u201CFix the race condition\u201D';
     const match = input.match(EXPLORE_COMMAND_REGEX);
     expect(match).not.toBeNull();
-    expect(match![1]).toBe('Fix the race condition');
+    expect(match![2]).toBe('Fix the race condition');
   });
 
-  it('does not match without quotes', () => {
+  it('matches without quotes', () => {
     const input = '/explore Fix the race condition';
     const match = input.match(EXPLORE_COMMAND_REGEX);
-    expect(match).toBeNull();
+    expect(match).not.toBeNull();
+    expect(match![3]).toBe('Fix the race condition');
+  });
+
+  it('matches /explore without prompt', () => {
+    const input = '/explore';
+    const match = input.match(EXPLORE_COMMAND_REGEX);
+    expect(match).not.toBeNull();
   });
 });
 

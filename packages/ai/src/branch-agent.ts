@@ -30,6 +30,11 @@ export interface BranchAgentOutput {
   agentLog: AgentLogEntry[];
 }
 
+export interface BranchAgentConfig {
+  model?: string;
+  maxOutputTokens?: number;
+}
+
 const branchOutputSchema = z.object({
   code: z
     .string()
@@ -136,19 +141,23 @@ Implement the option described above. Produce:
 export async function runBranchAgent(
   input: BranchAgentInput,
   apiKey: string,
+  config: BranchAgentConfig = {},
 ): Promise<BranchAgentOutput> {
   const provider = getAIProvider(apiKey);
+  const model = config.model ?? 'claude-3-5-haiku-latest';
+  const maxOutputTokens = config.maxOutputTokens ?? 1_200;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SANDBOX_TIMEOUT_MS);
 
   try {
     const { object: result } = await generateObject({
-      model: provider('claude-sonnet-4-20250514'),
+      model: provider(model),
       schema: branchOutputSchema,
       system: buildSystemPrompt(),
       prompt: buildUserPrompt(input),
       temperature: 0.3,
+      maxTokens: maxOutputTokens,
       abortSignal: controller.signal,
     });
 

@@ -12,6 +12,12 @@ export interface OptionsEngineInput {
   concern: string | undefined;
 }
 
+export interface OptionsEngineConfig {
+  model?: string;
+  maxInputChars?: number;
+  maxOutputTokens?: number;
+}
+
 const explorationOptionSchema = z.object({
   id: z.enum(['A', 'B', 'C']),
   label: z.string().describe('Short descriptive label for this option (3-8 words)'),
@@ -52,27 +58,31 @@ Rules:
 - Be specific — reference actual function names, patterns, and line numbers from the code.`;
 }
 
-function buildUserPrompt(input: OptionsEngineInput): string {
+function trimForPrompt(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  return `${text.slice(0, maxChars)}\n\n[...truncated ${text.length - maxChars} chars to control token cost...]`;
+}
+
+function buildUserPrompt(input: OptionsEngineInput, maxInputChars: number): string {
   const lines = input.fileContent.split('\n');
   const contextStart = Math.max(0, input.lineRange.start - 10);
   const contextEnd = Math.min(lines.length, input.lineRange.end + 10);
-  const focusedContext = lines.slice(contextStart, contextEnd).join('\n');
+  const focusedContext = trimForPrompt(lines.slice(contextStart, contextEnd).join('\n'), maxInputChars);
+  const trimmedDiffHunk = trimForPrompt(input.diffHunk, Math.floor(maxInputChars / 2));
 
   let prompt = `## File: ${input.filePath}
 
 ### Diff Hunk
 \`\`\`
-${input.diffHunk}
+${trimmedDiffHunk}
 \`\`\`
 
 ### Code Context (lines ${contextStart + 1}-${contextEnd})
 \`\`\`
 ${focusedContext}
-\`\`\`
-
-### Full File
-\`\`\`
-${input.fileContent}
 \`\`\`
 `;
 
@@ -94,15 +104,20 @@ ${input.fileContent}
 export async function generateOptions(
   input: OptionsEngineInput,
   apiKey: string,
+  config: OptionsEngineConfig = {},
 ): Promise<ExplorationOption[]> {
   const provider = getAIProvider(apiKey);
+  const model = config.model ?? 'claude-3-5-haiku-latest';
+  const maxInputChars = config.maxInputChars ?? 12_000;
+  const maxOutputTokens = config.maxOutputTokens ?? 900;
 
   const { object: options } = await generateObject({
-    model: provider('claude-sonnet-4-20250514'),
+    model: provider(model),
     schema: optionsArraySchema,
     system: buildSystemPrompt(),
-    prompt: buildUserPrompt(input),
+    prompt: buildUserPrompt(input, maxInputChars),
     temperature: 0.7,
+    maxTokens: maxOutputTokens,
   });
 
   return options;
