@@ -6,7 +6,7 @@ import type {
   RiskLevel,
   ExploreRunStatus,
   SolutionBranchStatus,
-} from '../types';
+} from '../types.js';
 
 describe('type contracts', () => {
   it('ExploreRunStatus covers all valid states', () => {

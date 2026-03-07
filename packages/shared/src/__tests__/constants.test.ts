@@ -6,7 +6,7 @@ import {
   RUN_ID_COMMENT_REGEX,
   OPTION_IDS,
   MAX_BRANCHES_PER_RUN,
-} from '../constants';
+} from '../constants.js';
 
 describe('EXPLORE_COMMAND_REGEX', () => {
   it('matches a valid /explore command with straight quotes', () => {
@@ -60,12 +60,12 @@ describe('CHECKBOX_OPTION_REGEX', () => {
     const body = '- [x] **A — Refactor**\n- [ ] **B — Rewrite**\n- [x] **C — Quick fix**';
     const matches = [...body.matchAll(CHECKBOX_OPTION_REGEX)];
     expect(matches).toHaveLength(3);
-    expect(matches[0][1]).toBe('x');
-    expect(matches[0][2]).toBe('A');
-    expect(matches[1][1]).toBe(' ');
-    expect(matches[1][2]).toBe('B');
-    expect(matches[2][1]).toBe('x');
-    expect(matches[2][2]).toBe('C');
+    expect(matches[0]![1]).toBe('x');
+    expect(matches[0]![2]).toBe('A');
+    expect(matches[1]![1]).toBe(' ');
+    expect(matches[1]![2]).toBe('B');
+    expect(matches[2]![1]).toBe('x');
+    expect(matches[2]![2]).toBe('C');
   });
 });
 
