@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreBinaries": ["podman"],
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": ["vitest", "zod"]
+    },
+    "packages/shared": {},
+    "packages/ai": {},
+    "packages/api": {
+      "entry": ["src/index.ts", "scripts/*.mjs"],
+      "includeEntryExports": false,
+      "ignoreDependencies": ["pino-pretty", "@ai-sdk/anthropic", "@fastify/env", "ai", "pino"]
+    },
+    "packages/web": {
+      "ignoreDependencies": ["@sage/api", "@testing-library/react", "@testing-library/jest-dom"]
+    }
+  }
+}

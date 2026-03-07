@@ -181,11 +181,11 @@ graph LR
     GH["GitHub"] -->|webhook POST| Cloud
 ```
 
-| Service   | Runs In          | Started By                |
-| --------- | ---------------- | ------------------------- |
-| PostgreSQL | Podman container | `podman compose up`       |
+| Service    | Runs In          | Started By                           |
+| ---------- | ---------------- | ------------------------------------ |
+| PostgreSQL | Podman container | `podman compose up`                  |
 | Smee       | Podman container | `podman compose --profile tunnel up` |
-| Sage API   | Host (Node 22)   | `turbo dev`               |
+| Sage API   | Host (Node 22)   | `turbo dev`                          |
 
 One command: **`pnpm dev:up`** starts everything.
 
@@ -193,12 +193,12 @@ One command: **`pnpm dev:up`** starts everything.
 
 ## Tech Stack
 
-| Layer       | Technology                          |
-| ----------- | ----------------------------------- |
-| Runtime     | Node 22, TypeScript                 |
-| API         | Fastify 5                           |
-| Database    | PostgreSQL 17, Drizzle ORM          |
-| AI          | Vercel AI SDK + Anthropic (Claude)  |
-| GitHub      | Octokit, GitHub App webhooks        |
-| Build       | Turborepo, tsup, pnpm 10           |
-| Containers  | Podman                              |
+| Layer      | Technology                         |
+| ---------- | ---------------------------------- |
+| Runtime    | Node 22, TypeScript                |
+| API        | Fastify 5                          |
+| Database   | PostgreSQL 17, Drizzle ORM         |
+| AI         | Vercel AI SDK + Anthropic (Claude) |
+| GitHub     | Octokit, GitHub App webhooks       |
+| Build      | Turborepo, tsup, pnpm 10           |
+| Containers | Podman                             |

@@ -1,0 +1,234 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Reusable setup ─────────────────────────────────────────────────────────
+# Every job uses the same checkout → pnpm → node → install sequence,
+# but they all run IN PARALLEL so wall-clock time ≈ slowest job.
+
+jobs:
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI Quality — format check + dead code detection (Knip)
+  # ═════════════════════════════════════════════════════════════════════════
+  quality:
+    name: 'CI Quality / format · knip'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prettier — check formatting
+        run: pnpm format:check
+      - name: Knip — unused code & dependencies
+        run: pnpm knip
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI Security — dependency vulnerability audit
+  # ═════════════════════════════════════════════════════════════════════════
+  security:
+    name: 'CI Security / audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Audit dependencies (high + critical)
+        run: pnpm audit --audit-level=high
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI Shared — lint · typecheck · test
+  # ═════════════════════════════════════════════════════════════════════════
+  shared:
+    name: 'CI Shared / ${{ matrix.task }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build dependencies
+        run: pnpm --filter @sage/shared build
+      - name: ${{ matrix.task }}
+        run: pnpm --filter @sage/shared ${{ matrix.task }}
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI AI — lint · typecheck · test
+  # ═════════════════════════════════════════════════════════════════════════
+  ai:
+    name: 'CI AI / ${{ matrix.task }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build dependencies
+        run: pnpm --filter @sage/ai... build
+      - name: ${{ matrix.task }}
+        run: pnpm --filter @sage/ai ${{ matrix.task }}
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI API — lint · typecheck · test
+  # ═════════════════════════════════════════════════════════════════════════
+  api:
+    name: 'CI API / ${{ matrix.task }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build dependencies
+        run: pnpm --filter @sage/api... build
+      - name: ${{ matrix.task }}
+        run: pnpm --filter @sage/api ${{ matrix.task }}
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # CI Web — lint · typecheck · test · build · e2e
+  # ═════════════════════════════════════════════════════════════════════════
+  web-checks:
+    name: 'CI Web / ${{ matrix.task }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build dependencies
+        run: pnpm --filter @sage/web... build
+      - name: ${{ matrix.task }}
+        run: pnpm --filter @sage/web ${{ matrix.task }}
+
+  web-build:
+    name: 'CI Web / build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build all (dependencies + web)
+        run: pnpm --filter @sage/web... build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: packages/web/dist
+          retention-days: 1
+
+  web-e2e:
+    name: 'CI Web / e2e'
+    needs: [web-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @sage/web exec playwright install --with-deps chromium
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: packages/web/dist
+      - name: Run E2E tests
+        run: pnpm --filter @sage/web test:e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: packages/web/playwright-report
+          retention-days: 7
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # Gate — single required status check for branch protection
+  # ═════════════════════════════════════════════════════════════════════════
+  ci-status-check:
+    name: ci-status-check
+    if: always()
+    needs: [quality, security, shared, ai, api, web-checks, web-build, web-e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "Quality:    ${{ needs.quality.result }}"
+          echo "Security:   ${{ needs.security.result }}"
+          echo "Shared:     ${{ needs.shared.result }}"
+          echo "AI:         ${{ needs.ai.result }}"
+          echo "API:        ${{ needs.api.result }}"
+          echo "Web checks: ${{ needs.web-checks.result }}"
+          echo "Web build:  ${{ needs.web-build.result }}"
+          echo "Web E2E:    ${{ needs.web-e2e.result }}"
+          if [[ "${{ needs.quality.result }}" == "failure" || \
+                "${{ needs.security.result }}" == "failure" || \
+                "${{ needs.shared.result }}" == "failure" || \
+                "${{ needs.ai.result }}" == "failure" || \
+                "${{ needs.api.result }}" == "failure" || \
+                "${{ needs.web-checks.result }}" == "failure" || \
+                "${{ needs.web-build.result }}" == "failure" || \
+                "${{ needs.web-e2e.result }}" == "failure" ]]; then
+            echo "::error::One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All CI jobs passed ✓"

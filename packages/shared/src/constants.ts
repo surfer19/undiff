@@ -11,7 +11,7 @@ export const WEBHOOK_ACK_TIMEOUT_MS = 10_000;
 export const BOT_COMMENT_PREFIX = '<!-- sage -->';
 
 /** Regex to parse /explore commands from PR review comments */
-export const EXPLORE_COMMAND_REGEX = /^\/explore\s+["""\u201C\u201D](.+)["""\u201C\u201D]\s*$/im;
+export const EXPLORE_COMMAND_REGEX = /^\/explore(?:\s+(?:"([^"]+)"|“([^”]+)”|(.+)))?\s*$/im;
 
 /** Regex to parse /run commands */
 export const RUN_COMMAND_REGEX = /^\/run\s+(all|[A-C](?:\s+[A-C])*)\s*$/im;
@@ -19,3 +19,9 @@ export const RUN_COMMAND_REGEX = /^\/run\s+(all|[A-C](?:\s+[A-C])*)\s*$/im;
 /** Valid option IDs */
 export const OPTION_IDS = ['A', 'B', 'C'] as const;
 export type OptionId = (typeof OPTION_IDS)[number];
+
+/** Regex to parse checkbox state from Sage bot option comments */
+export const CHECKBOX_OPTION_REGEX = /- \[(x| )\] \*\*([A-C])/gi;
+
+/** Regex to extract run ID from embedded HTML comment in bot messages */
+export const RUN_ID_COMMENT_REGEX = /<!-- sage:run:([\w-]+) -->/;

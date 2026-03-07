@@ -1,9 +1,13 @@
 import { nanoid } from 'nanoid';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
+import { RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
 import type { ExploreCommand } from '@sage/shared';
 import { getDb, schema } from '../db/index.js';
+import { updateRunStatus } from '../db/helpers.js';
 import { getGitHubApp } from '../github/index.js';
+import { parseCheckboxes } from '../github/parse-checkboxes.js';
+import { runOptionsEngine, runOrchestrator } from '../ai/orchestrator.js';
 import type { Env } from '../config/index.js';
 
 interface WebhookBody {
@@ -40,6 +44,57 @@ interface WebhookBody {
   };
   installation?: {
     id: number;
+  };
+}
+
+function parseExploreCommand(commentBody: string): {
+  matched: boolean;
+  hasExplicitPrompt: boolean;
+  prompt?: string;
+} {
+  const trimmed = commentBody.trim();
+
+  if (!trimmed.startsWith('/explore')) {
+    return { matched: false, hasExplicitPrompt: false };
+  }
+
+  const remainder = trimmed.slice('/explore'.length);
+
+  // Ensure command boundary: '/exploreX' is not a valid command.
+  if (
+    remainder.length > 0 &&
+    remainder[0] !== ' ' &&
+    remainder[0] !== '\t' &&
+    remainder[0] !== '\n'
+  ) {
+    return { matched: false, hasExplicitPrompt: false };
+  }
+
+  const promptText = remainder.trim();
+  if (!promptText) {
+    return { matched: true, hasExplicitPrompt: false };
+  }
+
+  if (promptText.startsWith('"') && promptText.endsWith('"') && promptText.length >= 2) {
+    return {
+      matched: true,
+      hasExplicitPrompt: true,
+      prompt: promptText.slice(1, -1).trim(),
+    };
+  }
+
+  if (promptText.startsWith('“') && promptText.endsWith('”') && promptText.length >= 2) {
+    return {
+      matched: true,
+      hasExplicitPrompt: true,
+      prompt: promptText.slice(1, -1).trim(),
+    };
+  }
+
+  return {
+    matched: true,
+    hasExplicitPrompt: true,
+    prompt: promptText,
   };
 }
 
@@ -101,23 +156,40 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
 
     const body = request.body as WebhookBody;
 
-    request.log.info({ action: body.action, comment: body.comment?.body, user: body.comment?.user?.login, deliveryId }, 'Processing review comment event');
+    request.log.info(
+      {
+        action: body.action,
+        comment: body.comment?.body,
+        user: body.comment?.user?.login,
+        deliveryId,
+      },
+      'Processing review comment event',
+    );
 
-    // Only process newly created comments
-    if (body.action !== 'created') {
-      return reply.code(200).send({ ignored: true, reason: `action: ${body.action}` });
-    }
-
-    // Ignore bot comments to prevent loops
+    // Ignore bot comments to prevent loops (applies to both created and edited)
     if (body.comment.user.type === 'Bot') {
       return reply.code(200).send({ ignored: true, reason: 'bot comment' });
     }
 
+    // ── Handle checkbox edits on Sage bot comments ──────────────────────
+    if (body.action === 'edited' && body.comment.body.startsWith(BOT_COMMENT_PREFIX)) {
+      return handleCheckboxEdit(request, reply, body, env);
+    }
+
+    // Only process newly created comments from here on
+    if (body.action !== 'created') {
+      return reply.code(200).send({ ignored: true, reason: `action: ${body.action}` });
+    }
+
     // Parse /explore command
-    const exploreMatch = EXPLORE_COMMAND_REGEX.exec(body.comment.body);
+    const exploreCommand = parseExploreCommand(body.comment.body);
     const runMatch = RUN_COMMAND_REGEX.exec(body.comment.body);
 
-    if (!exploreMatch?.[1] && !runMatch?.[1]) {
+    if (!exploreCommand.matched && !runMatch?.[1]) {
+      request.log.info(
+        { deliveryId, comment: body.comment.body },
+        'Ignoring comment: no /explore or /run command',
+      );
       return reply.code(200).send({ ignored: true, reason: 'no /explore or /run command' });
     }
 
@@ -128,23 +200,78 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       return reply.code(400).send({ error: 'Missing installation ID' });
     }
 
-    // Handle /run command (P1 — stub for now)
+    // Handle /run command
     if (runMatch?.[1]) {
       const selection = runMatch[1].trim();
       const selectedIds = selection === 'all' ? ['A', 'B', 'C'] : selection.split(/\s+/);
 
-      request.log.info({ selectedIds, deliveryId }, '/run command received (P1 stub)');
+      request.log.info({ selectedIds, deliveryId }, '/run command received');
 
-      // TODO (P1): Look up the most recent run for this PR/file,
-      // update selectedOptionIds, and kick off agents
+      const db = getDb(env.DATABASE_URL);
+
+      // Find the most recent options_ready run for this PR + file
+      const runs = await db.query.exploreRuns.findMany({
+        where: (r, { eq, and }) =>
+          and(eq(r.filePath, body.comment.path), eq(r.status, 'options_ready' as const)),
+        orderBy: (r, { desc }) => [desc(r.createdAt)],
+        limit: 5,
+      });
+
+      // Filter to matching PR
+      const run = runs.find((r) => {
+        const pr = r.prRef as { owner: string; repo: string; number: number };
+        return (
+          pr.owner === body.repository.owner.login &&
+          pr.repo === body.repository.name &&
+          pr.number === body.pull_request.number
+        );
+      });
+
+      if (!run) {
+        return reply.code(200).send({
+          ignored: true,
+          reason: 'no options_ready run found for this PR/file',
+        });
+      }
+
+      // Validate selected IDs exist in run.options
+      const validOptions = (run.options as Array<{ id: string }>).map((o) => o.id);
+      const validSelected = selectedIds.filter((id) => validOptions.includes(id));
+
+      if (validSelected.length === 0) {
+        return reply.code(200).send({
+          ignored: true,
+          reason: 'no valid option IDs in /run command',
+        });
+      }
+
+      // Update run and kick off orchestrator
+      await updateRunStatus(db, run.id, 'running', {
+        selectedOptionIds: validSelected,
+      });
+
+      // Fire-and-forget
+      runOrchestrator(run.id, validSelected, env).catch((err) => {
+        request.log.error({ runId: run.id, err }, 'Orchestrator failed');
+      });
+
       return reply.code(202).send({
-        message: '/run command acknowledged — agent execution coming in P1',
-        selectedIds,
+        runId: run.id,
+        status: 'running',
+        selectedIds: validSelected,
+        message: '/run command accepted - agents dispatched',
       });
     }
 
     // Handle /explore command
-    const prompt = exploreMatch![1]!.trim();
+    const prompt = exploreCommand.prompt || 'General review of this code region';
+
+    if (!exploreCommand.hasExplicitPrompt) {
+      request.log.info(
+        { deliveryId, runPrompt: prompt },
+        'Explore command used without explicit prompt, using default prompt',
+      );
+    }
 
     // Build the explore command
     const startLine = body.comment.original_start_line ?? body.comment.original_line ?? 0;
@@ -199,6 +326,7 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
         comment_id: command.commentId,
         body: [
           BOT_COMMENT_PREFIX,
+          `<!-- sage:run:${runId} -->`,
           `🔍 **Exploring:** "${prompt}"`,
           '',
           `Run ID: \`${runId}\``,
@@ -212,8 +340,11 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
       // Don't fail the webhook — the run is already persisted
     }
 
-    // TODO (P1): Kick off the Options Engine asynchronously here
-    // await enqueueOptionsGeneration(runId);
+    // Fire-and-forget: kick off the Options Engine asynchronously
+    request.log.info({ runId, deliveryId }, 'Launching options engine');
+    runOptionsEngine(runId, env).catch((err) => {
+      request.log.error({ runId, err }, 'Options engine failed');
+    });
 
     return reply.code(202).send({
       runId,
@@ -222,22 +353,84 @@ export function registerWebhookRoutes(app: FastifyInstance, env: Env) {
     });
   });
 
-  // GET explore run status (for future polling)
-  app.get(
-    '/api/explore/:runId',
-    async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
-      const { runId } = request.params;
-      const db = getDb(env.DATABASE_URL);
+  // ── Checkbox edit handler ───────────────────────────────────────────
+  async function handleCheckboxEdit(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    body: WebhookBody,
+    env: Env,
+  ) {
+    const parsed = parseCheckboxes(body.comment.body);
 
-      const run = await db.query.exploreRuns.findFirst({
-        where: (runs, { eq }) => eq(runs.id, runId),
-      });
+    if (!parsed) {
+      return reply.code(200).send({ ignored: true, reason: 'not a sage options comment' });
+    }
 
-      if (!run) {
-        return reply.code(404).send({ error: 'Run not found' });
-      }
+    const { runId, checkedOptionIds } = parsed;
 
-      return run;
-    },
-  );
+    if (checkedOptionIds.length === 0) {
+      request.log.info({ runId }, 'Checkbox edit detected but no options checked');
+      return reply.code(200).send({ ignored: true, reason: 'no options checked' });
+    }
+
+    const db = getDb(env.DATABASE_URL);
+
+    const run = await db.query.exploreRuns.findFirst({
+      where: (runs, { eq }) => eq(runs.id, runId),
+    });
+
+    if (!run) {
+      request.log.warn({ runId }, 'Checkbox edit for unknown run');
+      return reply.code(200).send({ ignored: true, reason: 'run not found' });
+    }
+
+    // Guard: only process if run is in options_ready state
+    if (run.status === 'running') {
+      request.log.info({ runId }, 'Ignoring checkbox edit — run is already running');
+      return reply.code(200).send({ ignored: true, reason: 'run already running' });
+    }
+
+    if (run.status !== 'options_ready') {
+      request.log.info({ runId, status: run.status }, 'Ignoring checkbox edit — unexpected status');
+      return reply.code(200).send({ ignored: true, reason: `status: ${run.status}` });
+    }
+
+    // Determine newly selected options (not already in selectedOptionIds)
+    const previouslySelected = (run.selectedOptionIds as string[]) ?? [];
+    const newSelections = checkedOptionIds.filter((id) => !previouslySelected.includes(id));
+
+    if (newSelections.length === 0) {
+      request.log.info({ runId }, 'Checkbox edit detected but no new selections');
+      return reply.code(200).send({ ignored: true, reason: 'no new selections' });
+    }
+
+    // Update run with new selections and transition to running
+    const allSelected = [...new Set([...previouslySelected, ...newSelections])];
+
+    await db
+      .update(schema.exploreRuns)
+      .set({
+        selectedOptionIds: allSelected,
+        status: 'running',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.exploreRuns.id, runId));
+
+    request.log.info(
+      { runId, newSelections, allSelected },
+      'Checkbox selections detected — run updated to running',
+    );
+
+    // Fire-and-forget: kick off the orchestrator for selected options
+    runOrchestrator(runId, newSelections, env).catch((err) => {
+      request.log.error({ runId, err }, 'Orchestrator failed');
+    });
+
+    return reply.code(202).send({
+      runId,
+      status: 'running',
+      newSelections,
+      message: 'Checkbox selections received — agents will be dispatched',
+    });
+  }
 }

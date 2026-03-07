@@ -12,7 +12,7 @@ Step-by-step guide to create and configure the GitHub App for sage.
 | Field               | Value                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------------------- |
 | **GitHub App name** | `sage-dev` (or any unique name)                                                                |
-| **Homepage URL**    | `https://github.com/surfer19/sage`                                                      |
+| **Homepage URL**    | `https://github.com/surfer19/sage`                                                             |
 | **Webhook URL**     | Your public URL + `/webhooks/github` (see [Webhook Tunnel](#4-webhook-tunnel-for-development)) |
 | **Webhook secret**  | Generate one: `openssl rand -hex 32`                                                           |
 
