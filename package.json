@@ -13,6 +13,7 @@
     "lint": "turbo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "ci:pr": "pnpm --filter @sage/api typecheck && pnpm format:check && pnpm knip",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "knip": "knip",
