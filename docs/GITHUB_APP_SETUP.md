@@ -1,6 +1,6 @@
 # GitHub App Setup
 
-Step-by-step guide to create and configure the GitHub App for sage.
+Step-by-step guide to create and configure the GitHub App for undiff.
 
 ## 1. Create the GitHub App
 
@@ -11,8 +11,8 @@ Step-by-step guide to create and configure the GitHub App for sage.
 
 | Field               | Value                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------------------- |
-| **GitHub App name** | `sage-dev` (or any unique name)                                                                |
-| **Homepage URL**    | `https://github.com/surfer19/sage`                                                      |
+| **GitHub App name** | `undiff-dev` (or any unique name)                                                                |
+| **Homepage URL**    | `https://github.com/surfer19/undiff`                                                      |
 | **Webhook URL**     | Your public URL + `/webhooks/github` (see [Webhook Tunnel](#4-webhook-tunnel-for-development)) |
 | **Webhook secret**  | Generate one: `openssl rand -hex 32`                                                           |
 

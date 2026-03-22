@@ -1,7 +1,7 @@
-# Sage — Architecture Overview
+# Undiff — Architecture Overview
 
-Sage is a multi-agent solution explorer that plugs into GitHub pull-request
-reviews. A reviewer types `/explore "question"` on a code range, and Sage
+Undiff is a multi-agent solution explorer that plugs into GitHub pull-request
+reviews. A reviewer types `/explore "question"` on a code range, and Undiff
 generates multiple refactoring options, each validated in a sandbox, so the
 team can pick the best path forward.
 
@@ -13,7 +13,7 @@ team can pick the best path forward.
 graph LR
     Dev((Developer)) -->|review comment<br/>/explore or /run| GH[GitHub]
     GH -->|webhook| Smee[Smee Tunnel]
-    Smee -->|forward| API["Sage API<br/>(Fastify)"]
+    Smee -->|forward| API["Undiff API<br/>(Fastify)"]
     API -->|read/write| DB[(PostgreSQL)]
     API -->|generate options| AI[Anthropic Claude]
     API -->|reply comment /<br/>create branch| GH
@@ -24,7 +24,7 @@ graph LR
 ## Monorepo Layout
 
 ```
-sage/
+undiff/
 ├── packages/
 │   ├── api/         # Fastify server — webhooks, AI orchestration, DB
 │   ├── shared/      # Types, constants, regex shared across packages
@@ -38,9 +38,9 @@ sage/
 ```mermaid
 graph TD
     subgraph Monorepo
-        API["@sage/api"]
-        Shared["@sage/shared"]
-        Web["@sage/web"]
+        API["@undiff/api"]
+        Shared["@undiff/shared"]
+        Web["@undiff/web"]
     end
     API -->|depends on| Shared
     Web -.->|will depend on| Shared
@@ -58,7 +58,7 @@ sequenceDiagram
     participant Dev as Developer
     participant GH as GitHub
     participant Smee as Smee Tunnel
-    participant API as Sage API
+    participant API as Undiff API
     participant DB as PostgreSQL
     participant AI as Anthropic Claude
 
@@ -164,7 +164,7 @@ stateDiagram-v2
 ```mermaid
 graph LR
     subgraph Host Machine
-        API["Sage API<br/>:4000"]
+        API["Undiff API<br/>:4000"]
         Turbo["Turborepo<br/>(pnpm dev)"]
     end
 
@@ -185,7 +185,7 @@ graph LR
 | --------- | ---------------- | ------------------------- |
 | PostgreSQL | Podman container | `podman compose up`       |
 | Smee       | Podman container | `podman compose --profile tunnel up` |
-| Sage API   | Host (Node 22)   | `turbo dev`               |
+| Undiff API   | Host (Node 22)   | `turbo dev`               |
 
 One command: **`pnpm dev:up`** starts everything.
 

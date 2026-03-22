@@ -5,7 +5,7 @@ import type {
   PrRef,
   LineRange,
   DeliveryMode,
-} from '@sage/shared';
+} from '@undiff/shared';
 
 export const exploreRuns = pgTable('explore_runs', {
   id: varchar('id', { length: 21 }).primaryKey(), // nanoid

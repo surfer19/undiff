@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: sage-db
+    container_name: undiff-db
     ports:
       - '5432:5432'
     environment:
@@ -18,7 +18,7 @@ services:
 
   smee:
     image: node:22-alpine
-    container_name: sage-smee
+    container_name: undiff-smee
     restart: unless-stopped
     entrypoint:
       - sh

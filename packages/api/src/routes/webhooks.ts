@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@sage/shared';
-import type { ExploreCommand } from '@sage/shared';
+import { EXPLORE_COMMAND_REGEX, RUN_COMMAND_REGEX, BOT_COMMENT_PREFIX } from '@undiff/shared';
+import type { ExploreCommand } from '@undiff/shared';
 import { getDb, schema } from '../db/index.js';
 import { getGitHubApp } from '../github/index.js';
 import type { Env } from '../config/index.js';

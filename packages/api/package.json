@@ -1,5 +1,5 @@
 {
-  "name": "@sage/api",
+  "name": "@undiff/api",
   "version": "0.1.0",
   "private": true,
   "description": "Fastify backend — webhooks, orchestration, API",
@@ -19,7 +19,7 @@
     "@ai-sdk/anthropic": "^1.0.0",
     "@fastify/cors": "^11.0.0",
     "@fastify/env": "^5.0.0",
-    "@sage/shared": "workspace:*",
+    "@undiff/shared": "workspace:*",
     "ai": "^4.0.0",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.39.0",
