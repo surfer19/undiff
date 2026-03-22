@@ -73,7 +73,7 @@ async function main() {
   // Start server
   try {
     await app.listen({ port: env.PORT, host: env.HOST });
-    app.log.info(`sage API running on http://${env.HOST}:${env.PORT}`);
+    app.log.info(`undiff API running on http://${env.HOST}:${env.PORT}`);
   } catch (err) {
     app.log.fatal(err, 'Failed to start server');
     process.exit(1);

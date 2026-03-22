@@ -1,4 +1,4 @@
-# sage
+# undiff
 
 > Multi-Agent Solution Explorer for GitHub Code Review
 
@@ -25,8 +25,8 @@ A reviewer selects problematic code in a GitHub PR, triggers an exploration, and
 
 ```bash
 # Clone the repo
-git clone https://github.com/surfer19/sage.git
-cd sage
+git clone https://github.com/surfer19/undiff.git
+cd undiff
 
 # Install dependencies
 pnpm install
@@ -52,7 +52,7 @@ See [docs/GITHUB_APP_SETUP.md](docs/GITHUB_APP_SETUP.md) for step-by-step instru
 ## Project Structure
 
 ```
-sage/
+undiff/
 ├── packages/
 │   ├── api/          # Fastify backend — webhooks, orchestration, API
 │   ├── shared/       # Shared TypeScript types and utilities

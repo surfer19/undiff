@@ -1,0 +1,2248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>undiff — Contextual Code Review for Frontend Teams</title>
+    <meta
+      name="description"
+      content="Multi-agent code review that sees the full picture. Spawn parallel AI agents to analyze features, coverage, security, and visual diffs — built for frontend teams."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ========================================
+   DESIGN SYSTEM / COLOR MANUAL
+   ========================================
+   Primary Dark:    #09080F (backgrounds)
+   Surface:         #111118 (cards)
+   Surface Hover:   #1A1A24 (elevated)
+   Border:          #222233 (subtle lines)
+   
+   Text Primary:    #FAFAFA
+   Text Secondary:  #8888AA
+   Text Muted:      #555566
+   
+   Accent Red:      #FF2D00 (gradient start)
+   Accent Orange:   #F84F2B (mid)
+   Accent Purple:   #4939B0 (gradient end)
+   Accent Blue:     #339AF0 (links, highlights)
+   
+   Gradient Brand:  linear-gradient(135deg, #FF2D00, #4939B0)
+   Gradient Glow:   radial-gradient(#FF2D0033, transparent)
+   ======================================== */
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+        font-size: 16px;
+        overflow-x: hidden;
+      }
+      body {
+        font-family:
+          'Inter',
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #09080f;
+        color: #fafafa;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      img,
+      svg {
+        display: block;
+        max-width: 100%;
+      }
+      code,
+      .mono {
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #09080f;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+
+      /* Layout */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      section {
+        position: relative;
+        padding: 120px 0;
+      }
+
+      /* Reveal animation base */
+      .reveal {
+        opacity: 0;
+        transform: translateY(40px);
+        transition:
+          opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal-delay-1 {
+        transition-delay: 0.1s;
+      }
+      .reveal-delay-2 {
+        transition-delay: 0.2s;
+      }
+      .reveal-delay-3 {
+        transition-delay: 0.3s;
+      }
+      .reveal-delay-4 {
+        transition-delay: 0.4s;
+      }
+      .reveal-delay-5 {
+        transition-delay: 0.5s;
+      }
+
+      /* ============ NAV ============ */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        padding: 1.1rem 0;
+        transition: all 0.4s ease;
+        backdrop-filter: blur(0px);
+        border-bottom: 1px solid transparent;
+      }
+      nav.scrolled {
+        padding: 0.6rem 0;
+        backdrop-filter: blur(20px);
+        background: rgba(9, 8, 15, 0.8);
+        border-bottom: 1px solid #222233;
+      }
+      nav .container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .nav-logo {
+        height: clamp(3.51rem, 6.48vw, 5.265rem);
+        width: auto;
+        transition: height 0.4s ease;
+      }
+      nav.scrolled .nav-logo {
+        height: clamp(2.6rem, 4.8vw, 3.8rem);
+      }
+      .nav-links {
+        display: flex;
+        gap: 32px;
+        align-items: center;
+      }
+      .nav-links a {
+        font-size: 14px;
+        color: #8888aa;
+        transition: color 0.3s;
+      }
+      .nav-links a:hover {
+        color: #fafafa;
+      }
+      .nav-cta {
+        background: linear-gradient(135deg, #ff2d00, #4939b0);
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .nav-cta:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 30px rgba(255, 45, 0, 0.3);
+      }
+
+      /* ============ HERO ============ */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        position: relative;
+        padding-top: 100px;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        top: -20%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 800px;
+        height: 800px;
+        background: radial-gradient(
+          circle,
+          rgba(73, 57, 176, 0.15) 0%,
+          rgba(255, 45, 0, 0.08) 40%,
+          transparent 70%
+        );
+        pointer-events: none;
+        animation: heroGlow 8s ease-in-out infinite alternate;
+      }
+      @keyframes heroGlow {
+        0% {
+          transform: translateX(-50%) scale(1);
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateX(-50%) scale(1.2);
+          opacity: 1;
+        }
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #222233;
+        border-radius: 100px;
+        padding: 6px 16px 6px 8px;
+        font-size: 13px;
+        color: #8888aa;
+        margin-bottom: 32px;
+        animation: fadeInDown 0.8s ease-out;
+      }
+      .hero-badge .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #339af0;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.8);
+        }
+      }
+      @keyframes fadeInDown {
+        0% {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .hero h1 {
+        font-size: clamp(48px, 7vw, 88px);
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -2px;
+        margin-bottom: 24px;
+        animation: fadeInUp 1s ease-out;
+      }
+      .hero h1 .gradient {
+        background: linear-gradient(135deg, #ff2d00 0%, #f84f2b 30%, #4939b0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      @keyframes fadeInUp {
+        0% {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .hero-sub {
+        font-size: clamp(16px, 2vw, 20px);
+        color: #8888aa;
+        max-width: 600px;
+        margin: 0 auto 48px;
+        line-height: 1.6;
+        animation: fadeInUp 1s ease-out 0.2s both;
+      }
+
+      .hero-ctas {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+        animation: fadeInUp 1s ease-out 0.4s both;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #ff2d00, #4939b0);
+        padding: 14px 32px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-primary::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, #ff2d00, #f84f2b);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(255, 45, 0, 0.35);
+      }
+      .btn-primary:hover::before {
+        opacity: 1;
+      }
+      .btn-primary span {
+        position: relative;
+        z-index: 1;
+      }
+      .btn-secondary {
+        padding: 14px 32px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fafafa;
+        border: 1px solid #333;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .btn-secondary:hover {
+        border-color: #555;
+        background: rgba(255, 255, 255, 0.05);
+        transform: translateY(-2px);
+      }
+
+      .hero-stats {
+        display: flex;
+        gap: 48px;
+        justify-content: center;
+        margin-top: 72px;
+        animation: fadeInUp 1s ease-out 0.6s both;
+      }
+      .hero-stat {
+        text-align: center;
+      }
+      .hero-stat .num {
+        font-size: 36px;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', monospace;
+        background: linear-gradient(135deg, #ff2d00, #339af0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero-stat .label {
+        font-size: 13px;
+        color: #555566;
+        margin-top: 4px;
+      }
+
+      /* ============ GRID LINES (decorative) ============ */
+      .grid-bg {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0.03;
+      }
+      .grid-bg::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(#fff 1px, transparent 1px),
+          linear-gradient(90deg, #fff 1px, transparent 1px);
+        background-size: 60px 60px;
+      }
+
+      /* ============ DEMO TERMINAL ============ */
+      .terminal-section {
+        padding: 80px 0 120px;
+      }
+      .terminal {
+        background: #111118;
+        border: 1px solid #222233;
+        border-radius: 16px;
+        overflow: hidden;
+        max-width: 900px;
+        margin: 0 auto;
+        box-shadow:
+          0 40px 80px rgba(0, 0, 0, 0.5),
+          0 0 120px rgba(73, 57, 176, 0.08);
+      }
+      .terminal-bar {
+        display: flex;
+        gap: 8px;
+        padding: 14px 18px;
+        background: #0d0d14;
+        border-bottom: 1px solid #222233;
+      }
+      .terminal-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .terminal-dot.r {
+        background: #ff5f57;
+      }
+      .terminal-dot.y {
+        background: #ffbd2e;
+      }
+      .terminal-dot.g {
+        background: #28ca41;
+      }
+      .terminal-body {
+        padding: 28px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        line-height: 1.8;
+        min-height: 280px;
+        position: relative;
+      }
+      .terminal-line {
+        opacity: 0;
+        animation: typeLine 0.5s ease forwards;
+      }
+      .terminal-line .prompt {
+        color: #4939b0;
+      }
+      .terminal-line .cmd {
+        color: #fafafa;
+      }
+      .terminal-line .flag {
+        color: #339af0;
+      }
+      .terminal-line .comment {
+        color: #555566;
+      }
+      .terminal-line .success {
+        color: #28ca41;
+      }
+      .terminal-line .agent-red {
+        color: #ff2d00;
+      }
+      .terminal-line .agent-purple {
+        color: #4939b0;
+      }
+      .terminal-line .agent-blue {
+        color: #339af0;
+      }
+      @keyframes typeLine {
+        0% {
+          opacity: 0;
+          transform: translateX(-10px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      /* ============ SECTION HEADERS ============ */
+      .section-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #339af0;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 16px;
+      }
+      .section-title {
+        font-size: clamp(32px, 4vw, 52px);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -1px;
+        margin-bottom: 20px;
+      }
+      .section-desc {
+        font-size: 18px;
+        color: #8888aa;
+        max-width: 560px;
+        line-height: 1.7;
+      }
+
+      /* ============ FEATURES BENTO ============ */
+      .features {
+        background: #09080f;
+      }
+      .features-header {
+        text-align: center;
+        margin-bottom: 72px;
+      }
+      .features-header .section-desc {
+        margin: 0 auto;
+      }
+
+      .bento {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .bento-card {
+        background: #111118;
+        border: 1px solid #222233;
+        border-radius: 16px;
+        padding: 36px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: default;
+      }
+      .bento-card:hover {
+        border-color: #333;
+        transform: translateY(-4px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      .bento-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #ff2d00, #4939b0, transparent);
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+      .bento-card:hover::before {
+        opacity: 1;
+      }
+      .bento-card.wide {
+        grid-column: span 2;
+      }
+      .bento-card.tall {
+        grid-row: span 2;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .bento-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        font-size: 22px;
+      }
+      .bento-icon.red {
+        background: rgba(255, 45, 0, 0.12);
+        color: #ff2d00;
+      }
+      .bento-icon.purple {
+        background: rgba(73, 57, 176, 0.15);
+        color: #4939b0;
+      }
+      .bento-icon.blue {
+        background: rgba(51, 154, 240, 0.12);
+        color: #339af0;
+      }
+      .bento-icon.green {
+        background: rgba(40, 202, 65, 0.12);
+        color: #28ca41;
+      }
+
+      .bento-card h3 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .bento-card p {
+        font-size: 15px;
+        color: #8888aa;
+        line-height: 1.6;
+      }
+
+      /* Mini visual inside cards */
+      .bento-visual {
+        margin-top: 24px;
+        flex: 1;
+        display: flex;
+        align-items: flex-end;
+      }
+      .diff-preview {
+        background: #0d0d14;
+        border-radius: 10px;
+        padding: 16px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        width: 100%;
+        border: 1px solid #1a1a28;
+      }
+      .diff-line {
+        padding: 2px 0;
+      }
+      .diff-add {
+        color: #28ca41;
+      }
+      .diff-remove {
+        color: #ff2d00;
+      }
+      .diff-context {
+        color: #555566;
+      }
+      .diff-file {
+        color: #339af0;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      /* Agent visualization */
+      .agent-viz {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+      .agent-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 100px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        animation: agentFloat 3s ease-in-out infinite alternate;
+        border: 1px solid;
+      }
+      .agent-pill:nth-child(1) {
+        background: rgba(255, 45, 0, 0.08);
+        border-color: rgba(255, 45, 0, 0.2);
+        color: #ff2d00;
+        animation-delay: 0s;
+      }
+      .agent-pill:nth-child(2) {
+        background: rgba(73, 57, 176, 0.1);
+        border-color: rgba(73, 57, 176, 0.2);
+        color: #4939b0;
+        animation-delay: 0.5s;
+      }
+      .agent-pill:nth-child(3) {
+        background: rgba(51, 154, 240, 0.08);
+        border-color: rgba(51, 154, 240, 0.2);
+        color: #339af0;
+        animation-delay: 1s;
+      }
+      .agent-pill:nth-child(4) {
+        background: rgba(40, 202, 65, 0.08);
+        border-color: rgba(40, 202, 65, 0.2);
+        color: #28ca41;
+        animation-delay: 1.5s;
+      }
+      .agent-pill .agent-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: pulse 2s infinite;
+      }
+      @keyframes agentFloat {
+        0% {
+          transform: translateY(0);
+        }
+        100% {
+          transform: translateY(-4px);
+        }
+      }
+
+      /* Screenshot mockup */
+      .screenshot-mock {
+        background: #0d0d14;
+        border: 1px solid #1a1a28;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 24px;
+      }
+      .screenshot-bar {
+        height: 8px;
+        background: #111118;
+        display: flex;
+        gap: 4px;
+        padding: 6px 10px;
+        align-items: center;
+      }
+      .screenshot-bar span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #333;
+      }
+      .screenshot-body {
+        padding: 16px;
+        display: flex;
+        gap: 12px;
+      }
+      .screenshot-before,
+      .screenshot-after {
+        flex: 1;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 11px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .screenshot-before {
+        background: rgba(255, 45, 0, 0.05);
+        border: 1px solid rgba(255, 45, 0, 0.15);
+      }
+      .screenshot-before .label-tag {
+        color: #ff2d00;
+        font-size: 10px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .screenshot-after {
+        background: rgba(40, 202, 65, 0.05);
+        border: 1px solid rgba(40, 202, 65, 0.15);
+      }
+      .screenshot-after .label-tag {
+        color: #28ca41;
+        font-size: 10px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .mock-element {
+        height: 8px;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        opacity: 0.3;
+      }
+
+      /* ============ HOW IT WORKS ============ */
+      .how-section {
+        background: #0d0d14;
+        border-top: 1px solid #151520;
+        border-bottom: 1px solid #151520;
+      }
+      .how-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 32px;
+        margin-top: 64px;
+      }
+      .how-step {
+        text-align: center;
+        position: relative;
+      }
+      .how-step::after {
+        content: '';
+        position: absolute;
+        top: 36px;
+        right: -16px;
+        width: 32px;
+        height: 2px;
+        background: linear-gradient(90deg, #333, transparent);
+        pointer-events: none;
+      }
+      .how-step:last-child::after {
+        display: none;
+      }
+      .how-num {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 24px;
+        font-weight: 700;
+        background: linear-gradient(135deg, rgba(255, 45, 0, 0.1), rgba(73, 57, 176, 0.1));
+        border: 1px solid #222233;
+        transition: all 0.4s;
+      }
+      .how-step:hover .how-num {
+        border-color: rgba(255, 45, 0, 0.4);
+        box-shadow: 0 0 40px rgba(255, 45, 0, 0.1);
+        transform: scale(1.1);
+      }
+      .how-step h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .how-step p {
+        font-size: 14px;
+        color: #8888aa;
+        line-height: 1.6;
+      }
+
+      /* ============ COMPARISON ============ */
+      .comparison {
+        overflow: hidden;
+      }
+      .comparison-header {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+      .comparison-header .section-desc {
+        margin: 0 auto;
+      }
+      .comp-table {
+        max-width: 800px;
+        margin: 0 auto;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #222233;
+      }
+      .comp-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        border-bottom: 1px solid #1a1a24;
+      }
+      .comp-row:last-child {
+        border: none;
+      }
+      .comp-cell {
+        padding: 18px 24px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .comp-row.header .comp-cell {
+        font-weight: 700;
+        background: #111118;
+        font-size: 15px;
+        padding: 20px 24px;
+      }
+      .comp-cell:first-child {
+        justify-content: flex-start;
+        color: #8888aa;
+        border-right: 1px solid #1a1a24;
+      }
+      .comp-cell .check {
+        color: #28ca41;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      .comp-cell .cross {
+        color: #ff2d00;
+        font-size: 18px;
+        opacity: 0.5;
+      }
+      .comp-cell .partial {
+        color: #ffbd2e;
+        font-size: 14px;
+      }
+      .comp-highlight {
+        background: rgba(73, 57, 176, 0.06);
+        border-left: 2px solid #4939b0;
+        border-right: 2px solid #4939b0;
+      }
+      .comp-row.header .comp-highlight {
+        background: linear-gradient(135deg, rgba(255, 45, 0, 0.1), rgba(73, 57, 176, 0.1));
+        border-top: 2px solid #4939b0;
+      }
+      .comp-row:last-child .comp-highlight {
+        border-bottom: 2px solid #4939b0;
+      }
+
+      /* ============ PROTOTYPE LAB ============ */
+      .prototype {
+        background: #0d0d14;
+        border-top: 1px solid #151520;
+        border-bottom: 1px solid #151520;
+      }
+      .prototype-header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+      .prototype-header .section-desc {
+        margin: 0 auto;
+      }
+      .proto-shell {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 1.6rem;
+        border-radius: 1rem;
+        border: 1px solid #222233;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+      }
+      .proto-options {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.2rem;
+      }
+      .proto-option {
+        border: 1px solid #2a2a38;
+        border-radius: 0.9rem;
+        background: #111118;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .proto-option:hover {
+        transform: translateY(-0.2rem);
+        border-color: #3b3b56;
+      }
+      .proto-option.active {
+        border-color: rgba(255, 45, 0, 0.5);
+        box-shadow: 0 0 0 1px rgba(255, 45, 0, 0.2);
+      }
+      .proto-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+      .proto-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #fff;
+      }
+      .proto-tag {
+        font-size: 0.68rem;
+        font-family: 'JetBrains Mono', monospace;
+        border-radius: 999rem;
+        padding: 0.2rem 0.5rem;
+      }
+      .proto-tag.safe {
+        color: #28ca41;
+        background: rgba(40, 202, 65, 0.14);
+      }
+      .proto-tag.fast {
+        color: #339af0;
+        background: rgba(51, 154, 240, 0.14);
+      }
+      .proto-tag.bold {
+        color: #ff8f5a;
+        background: rgba(255, 45, 0, 0.14);
+      }
+      .proto-option p {
+        font-size: 0.84rem;
+        color: #8888aa;
+        line-height: 1.5;
+      }
+      .proto-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 1rem;
+      }
+      .proto-panel {
+        border: 1px solid #222233;
+        border-radius: 0.9rem;
+        background: #111118;
+        padding: 1rem;
+      }
+      .proto-panel h3 {
+        font-size: 1rem;
+        margin-bottom: 0.8rem;
+      }
+      .proto-compare {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+      }
+      .proto-view {
+        border: 1px solid #20202b;
+        border-radius: 0.7rem;
+        background: #0d0d14;
+        overflow: hidden;
+      }
+      .proto-view .bar {
+        font-size: 0.68rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: #8888aa;
+        padding: 0.45rem 0.6rem;
+        border-bottom: 1px solid #20202b;
+      }
+      .proto-canvas {
+        padding: 0.75rem;
+      }
+      .mock-card {
+        border: 1px solid #2a2a3b;
+        border-radius: 0.6rem;
+        padding: 0.65rem;
+        margin-bottom: 0.5rem;
+      }
+      .mock-card .line {
+        height: 0.42rem;
+        border-radius: 0.4rem;
+        margin-bottom: 0.35rem;
+        opacity: 0.8;
+      }
+      .mock-card .line:last-child {
+        margin-bottom: 0;
+      }
+      .proto-results {
+        display: grid;
+        gap: 0.65rem;
+      }
+      .result-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .result-label {
+        font-size: 0.82rem;
+        color: #bbbbcc;
+      }
+      .result-chip {
+        font-size: 0.74rem;
+        font-family: 'JetBrains Mono', monospace;
+        border-radius: 999rem;
+        padding: 0.24rem 0.58rem;
+      }
+      .chip-good {
+        color: #28ca41;
+        background: rgba(40, 202, 65, 0.15);
+      }
+      .chip-mid {
+        color: #ffbd2e;
+        background: rgba(255, 189, 46, 0.13);
+      }
+      .chip-risk {
+        color: #ff6b4a;
+        background: rgba(255, 45, 0, 0.14);
+      }
+      .proto-foot {
+        margin-top: 0.9rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid #20202b;
+        font-size: 0.84rem;
+        color: #9a9ab8;
+      }
+
+      /* ============ CONTEXT VIEWS ============ */
+      .contexts {
+        background: #0d0d14;
+        border-top: 1px solid #151520;
+        border-bottom: 1px solid #151520;
+      }
+      .context-tabs {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 48px;
+        flex-wrap: wrap;
+      }
+      .context-tab {
+        padding: 10px 24px;
+        border-radius: 100px;
+        font-size: 14px;
+        font-weight: 600;
+        background: transparent;
+        border: 1px solid #222233;
+        color: #8888aa;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: inherit;
+      }
+      .context-tab.active,
+      .context-tab:hover {
+        background: linear-gradient(135deg, rgba(255, 45, 0, 0.15), rgba(73, 57, 176, 0.15));
+        border-color: rgba(255, 45, 0, 0.3);
+        color: #fafafa;
+      }
+      .context-panel {
+        background: #111118;
+        border: 1px solid #222233;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 900px;
+        margin: 0 auto;
+        min-height: 300px;
+        display: none;
+      }
+      .context-panel.active {
+        display: block;
+        animation: panelIn 0.5s ease;
+      }
+      @keyframes panelIn {
+        0% {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .context-panel h3 {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .context-panel p {
+        color: #8888aa;
+        line-height: 1.7;
+        margin-bottom: 24px;
+      }
+      .context-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .context-tag {
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .context-tag.feat {
+        background: rgba(73, 57, 176, 0.12);
+        color: #7b68ee;
+      }
+      .context-tag.cov {
+        background: rgba(40, 202, 65, 0.1);
+        color: #28ca41;
+      }
+      .context-tag.sec {
+        background: rgba(255, 45, 0, 0.1);
+        color: #ff6b4a;
+      }
+      .context-tag.vis {
+        background: rgba(51, 154, 240, 0.1);
+        color: #339af0;
+      }
+
+      /* Feature detail list */
+      .context-features {
+        list-style: none;
+        margin-top: 20px;
+      }
+      .context-features li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #1a1a24;
+        font-size: 14px;
+        color: #ccccdd;
+      }
+      .context-features li:last-child {
+        border: none;
+      }
+      .context-features .cf-icon {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        background: rgba(40, 202, 65, 0.1);
+        color: #28ca41;
+      }
+
+      /* ============ SOCIAL PROOF ============ */
+      .proof {
+        text-align: center;
+      }
+      .proof-logos {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 48px;
+        margin-top: 48px;
+        flex-wrap: wrap;
+        opacity: 0.4;
+      }
+      .proof-logo {
+        font-size: 18px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        color: #555;
+      }
+      .proof-quote {
+        max-width: 700px;
+        margin: 64px auto 0;
+        padding: 40px;
+        background: #111118;
+        border: 1px solid #222233;
+        border-radius: 16px;
+        position: relative;
+      }
+      .proof-quote::before {
+        content: '"';
+        position: absolute;
+        top: 16px;
+        left: 24px;
+        font-size: 72px;
+        color: #222233;
+        line-height: 1;
+        font-family: serif;
+      }
+      .proof-quote blockquote {
+        font-size: 18px;
+        line-height: 1.7;
+        color: #ccccdd;
+        padding-left: 20px;
+      }
+      .proof-quote .attribution {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #555566;
+      }
+      .proof-quote .attribution strong {
+        color: #8888aa;
+      }
+
+      /* ============ PRICING TEASER ============ */
+      .pricing {
+        background: #09080f;
+      }
+      .pricing-header {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+      .pricing-header .section-desc {
+        margin: 0 auto;
+      }
+      .pricing-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      .pricing-card {
+        background: #111118;
+        border: 1px solid #222233;
+        border-radius: 16px;
+        padding: 36px;
+        text-align: center;
+        transition: all 0.4s;
+      }
+      .pricing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      .pricing-card.featured {
+        border-color: rgba(255, 45, 0, 0.3);
+        background: linear-gradient(180deg, rgba(255, 45, 0, 0.04), #111118);
+        position: relative;
+      }
+      .pricing-card.featured::before {
+        content: 'POPULAR';
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ff2d00, #4939b0);
+        padding: 4px 16px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+      .pricing-card .price {
+        font-size: 42px;
+        font-weight: 800;
+        margin: 20px 0 8px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .pricing-card .price span {
+        font-size: 16px;
+        color: #555566;
+        font-weight: 400;
+      }
+      .pricing-card .plan-name {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .pricing-card .plan-desc {
+        font-size: 13px;
+        color: #555566;
+        margin-bottom: 24px;
+      }
+      .pricing-card ul {
+        list-style: none;
+        text-align: left;
+        margin-bottom: 28px;
+      }
+      .pricing-card li {
+        padding: 8px 0;
+        font-size: 14px;
+        color: #8888aa;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pricing-card li::before {
+        content: '';
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(40, 202, 65, 0.12);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .pricing-card .btn-price {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+        font-family: inherit;
+      }
+      .pricing-card .btn-price.primary {
+        background: linear-gradient(135deg, #ff2d00, #4939b0);
+        color: #fff;
+      }
+      .pricing-card .btn-price.primary:hover {
+        box-shadow: 0 8px 30px rgba(255, 45, 0, 0.3);
+      }
+      .pricing-card .btn-price.outline {
+        background: transparent;
+        border: 1px solid #333;
+        color: #fafafa;
+      }
+      .pricing-card .btn-price.outline:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: #555;
+      }
+
+      /* ============ FINAL CTA ============ */
+      .final-cta {
+        text-align: center;
+        padding: 160px 0;
+        position: relative;
+      }
+      .final-cta::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 1000px;
+        height: 600px;
+        background: radial-gradient(
+          ellipse,
+          rgba(255, 45, 0, 0.08) 0%,
+          rgba(73, 57, 176, 0.06) 50%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .final-cta h2 {
+        font-size: clamp(36px, 5vw, 64px);
+        font-weight: 900;
+        letter-spacing: -1px;
+        margin-bottom: 20px;
+      }
+      .final-cta p {
+        font-size: 18px;
+        color: #8888aa;
+        margin-bottom: 40px;
+      }
+
+      /* ============ FOOTER ============ */
+      footer {
+        border-top: 1px solid #151520;
+        padding: 48px 0;
+        color: #555566;
+        font-size: 13px;
+      }
+      footer .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+      .footer-links {
+        display: flex;
+        gap: 24px;
+      }
+      .footer-links a {
+        color: #555566;
+        transition: color 0.3s;
+      }
+      .footer-links a:hover {
+        color: #fafafa;
+      }
+
+      /* ============ FLOATING PARTICLES ============ */
+      .particles {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+      .particle {
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        border-radius: 50%;
+        background: #339af0;
+        opacity: 0.3;
+        animation: float linear infinite;
+      }
+      @keyframes float {
+        0% {
+          transform: translateY(100vh) scale(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 0.3;
+        }
+        90% {
+          opacity: 0.3;
+        }
+        100% {
+          transform: translateY(-100px) scale(1);
+          opacity: 0;
+        }
+      }
+
+      /* ============ CURSOR GLOW ============ */
+      .cursor-glow {
+        position: fixed;
+        width: 500px;
+        height: 500px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 1;
+        background: radial-gradient(circle, rgba(73, 57, 176, 0.06), transparent 70%);
+        transform: translate(-50%, -50%);
+        transition:
+          left 0.3s ease-out,
+          top 0.3s ease-out;
+      }
+
+      /* ============ WAITLIST FORM ============ */
+      .waitlist-form {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        max-width: 480px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+      }
+      .waitlist-form input[type='email'] {
+        flex: 1;
+        min-width: 240px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        border: 1px solid #222233;
+        background: #111118;
+        color: #fafafa;
+        font-size: 16px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.3s, box-shadow 0.3s;
+      }
+      .waitlist-form input[type='email']::placeholder {
+        color: #555566;
+      }
+      .waitlist-form input[type='email']:focus {
+        border-color: rgba(255, 45, 0, 0.5);
+        box-shadow: 0 0 0 3px rgba(255, 45, 0, 0.1);
+      }
+      .waitlist-form .btn-primary {
+        white-space: nowrap;
+      }
+      .waitlist-form .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .form-message {
+        text-align: center;
+        margin-top: 16px;
+        font-size: 14px;
+        min-height: 22px;
+      }
+      .form-message.success {
+        color: #28ca41;
+      }
+      .form-message.error {
+        color: #ff6b4a;
+      }
+      .waitlist-count {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 13px;
+        color: #555566;
+      }
+      .waitlist-count strong {
+        color: #8888aa;
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* ============ RESPONSIVE ============ */
+      @media (max-width: 900px) {
+        .bento {
+          grid-template-columns: 1fr;
+        }
+        .bento-card.wide {
+          grid-column: span 1;
+        }
+        .how-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .how-step::after {
+          display: none;
+        }
+        .pricing-cards {
+          grid-template-columns: 1fr;
+        }
+        .comp-table {
+          font-size: 13px;
+        }
+        .comp-cell {
+          padding: 14px 12px;
+        }
+        .comp-highlight {
+          border-left: 1px solid #4939b0;
+          border-right: 1px solid #4939b0;
+        }
+        .comp-row.header .comp-highlight {
+          border-top: 1px solid #4939b0;
+        }
+        .comp-row:last-child .comp-highlight {
+          border-bottom: 1px solid #4939b0;
+        }
+        .hero-stats {
+          gap: 24px;
+        }
+        .nav-links {
+          display: none;
+        }
+        nav .container {
+          justify-content: center;
+        }
+        .proto-options {
+          grid-template-columns: 1fr;
+        }
+        .proto-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 600px) {
+        .how-grid {
+          grid-template-columns: 1fr;
+        }
+        section {
+          padding: 80px 0;
+        }
+        .hero-stats {
+          flex-direction: column;
+          gap: 16px;
+        }
+        .comp-table {
+          font-size: 12px;
+        }
+        .comp-cell {
+          padding: 12px 8px;
+        }
+        .comp-row {
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Ambient particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Cursor glow -->
+    <div class="cursor-glow" id="cursorGlow"></div>
+
+    <!-- NAV -->
+    <nav id="nav">
+      <div class="container">
+        <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">
+          <img src="assets/logo-dark.svg" alt="undiff" class="nav-logo" />
+        </a>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#how">How It Works</a>
+          <a href="#compare">Compare</a>
+          <a href="#prototype">Prototype Lab</a>
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">Docs</a>
+          <button class="nav-cta" onclick="window.location.href = '#get-started'">
+            Get Early Access
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="grid-bg"></div>
+      <div class="container">
+        <div>
+          <div class="hero-badge">
+            <span class="dot"></span>
+            Built for frontend teams
+          </div>
+          <h1>Code review<br />with <span class="gradient">full context.</span></h1>
+          <p class="hero-sub">
+            AI agents explore multiple solutions to every PR problem, show you side-by-side trade-offs, and iterate with you until the best option ships — not just comments, real working alternatives.
+          </p>
+          <div class="hero-ctas">
+            <button class="btn-primary" onclick="window.location.href = '#get-started'">
+              <span>Get Early Access</span>
+            </button>
+            <button class="btn-secondary" onclick="window.location.href = '#how'">
+              See How It Works
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES BENTO -->
+    <section class="features" id="features">
+      <div class="container">
+        <div class="features-header reveal">
+          <div class="section-label">Core Features</div>
+          <h2 class="section-title">
+            More than a GitHub bot.<br />A <span class="gradient">multi-agent review system.</span>
+          </h2>
+          <p class="section-desc">
+            undiff appears in your PR like a GitHub bot, but under the hood multiple specialized
+            agents analyze features, coverage, security, and visual changes in parallel.
+          </p>
+        </div>
+
+        <div class="bento">
+          <!-- Card 1: Multi-Agent -->
+          <div class="bento-card wide reveal">
+            <div class="bento-icon purple">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 4-7 8-7s8 3 8 7" />
+                <circle cx="4" cy="10" r="2.5" opacity=".5" />
+                <circle cx="20" cy="10" r="2.5" opacity=".5" />
+              </svg>
+            </div>
+            <h3>Multi-Agent Parallel Review</h3>
+            <p>
+              Instead of one AI chatbot, undiff spawns specialized agents simultaneously — one for
+              feature logic, one for test coverage, one for security, one for visual regressions.
+              Each returns focused, actionable feedback.
+            </p>
+            <div class="agent-viz">
+              <div class="agent-pill"><span class="agent-dot"></span> feature-agent</div>
+              <div class="agent-pill"><span class="agent-dot"></span> coverage-agent</div>
+              <div class="agent-pill"><span class="agent-dot"></span> security-agent</div>
+              <div class="agent-pill"><span class="agent-dot"></span> visual-agent</div>
+            </div>
+          </div>
+
+          <!-- Card 2: Visual Diffs -->
+          <div class="bento-card tall reveal reveal-delay-1">
+            <div class="bento-icon blue">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="2" y="3" width="20" height="18" rx="2" />
+                <path d="M12 3v18" />
+                <path d="M2 12h20" />
+              </svg>
+            </div>
+            <h3>Visual Diff Screenshots</h3>
+            <p>
+              For UI changes, see before/after screenshots from your real app — not just code.
+              Pixel-level comparison of what actually changed in the browser.
+            </p>
+            <div class="bento-visual">
+              <div class="screenshot-mock">
+                <div class="screenshot-bar"><span></span><span></span><span></span></div>
+                <div class="screenshot-body">
+                  <div class="screenshot-before">
+                    <div class="label-tag">BEFORE</div>
+                    <div class="mock-element" style="width: 80%; background: #ff2d00"></div>
+                    <div class="mock-element" style="width: 60%; background: #ff2d00"></div>
+                    <div class="mock-element" style="width: 90%; background: #ff2d00"></div>
+                    <div class="mock-element" style="width: 45%; background: #ff2d00"></div>
+                  </div>
+                  <div class="screenshot-after">
+                    <div class="label-tag">AFTER</div>
+                    <div class="mock-element" style="width: 80%; background: #28ca41"></div>
+                    <div class="mock-element" style="width: 75%; background: #28ca41"></div>
+                    <div class="mock-element" style="width: 90%; background: #28ca41"></div>
+                    <div class="mock-element" style="width: 60%; background: #28ca41"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Feature Context -->
+          <div class="bento-card reveal reveal-delay-2">
+            <div class="bento-icon red">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M4 6h16M4 12h10M4 18h14" />
+                <circle cx="19" cy="12" r="3" fill="currentColor" opacity=".3" />
+              </svg>
+            </div>
+            <h3>Feature-Grouped Changes</h3>
+            <p>
+              See changes organized by feature, not by file. Understand what each PR actually does
+              at a product level — "added dark mode toggle" instead of "modified 14 files".
+            </p>
+          </div>
+
+          <!-- Card 4: Security -->
+          <div class="bento-card reveal reveal-delay-2">
+            <div class="bento-icon red">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 2l8 4v6c0 5.5-3.8 10-8 11-4.2-1-8-5.5-8-11V6l8-4z" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+            </div>
+            <h3>Security Scanner</h3>
+            <p>
+              Dedicated agent for XSS vectors, insecure dependencies, leaked secrets, and OWASP
+              patterns — tuned for frontend codebases.
+            </p>
+            <div class="bento-visual">
+              <div class="diff-preview">
+                <div class="diff-file">src/components/UserInput.tsx</div>
+                <div class="diff-line diff-remove">- innerHTML={userContent}</div>
+                <div class="diff-line diff-add">+ {sanitize(userContent)}</div>
+                <div
+                  class="diff-line diff-context"
+                  style="margin-top: 8px; color: #ff2d00; font-size: 11px"
+                >
+                  ⚠ XSS: unsanitized user input in DOM
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-grid" id="how" style="margin-top: 80px">
+          <div class="how-step reveal">
+            <div class="how-num">1</div>
+            <h3>Open a PR</h3>
+            <p>Push code as usual. undiff hooks into your GitHub workflow automatically.</p>
+          </div>
+          <div class="how-step reveal reveal-delay-1">
+            <div class="how-num">2</div>
+            <h3>Agents Spawn</h3>
+            <p>
+              Multiple AI agents analyze your changes in parallel — features, coverage, security,
+              visual.
+            </p>
+          </div>
+          <div class="how-step reveal reveal-delay-2">
+            <div class="how-num">3</div>
+            <h3>Contextual Report</h3>
+            <p>
+              Results organized by context, not files. Visual diffs, coverage maps, security flags —
+              all inline.
+            </p>
+          </div>
+          <div class="how-step reveal reveal-delay-3">
+            <div class="how-num">4</div>
+            <h3>Ship Confidently</h3>
+            <p>Address findings, re-run agents, merge. Every PR ships with full context.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- COMPARISON -->
+    <section class="comparison" id="compare">
+      <div class="container">
+        <div class="comparison-header reveal">
+          <div class="section-label">Why undiff</div>
+          <h2 class="section-title"><span class="gradient">Beyond</span> single-agent review.</h2>
+          <p class="section-desc">Other tools chat about code. undiff understands it in context.</p>
+        </div>
+
+        <div class="comp-table reveal">
+          <div class="comp-row header">
+            <div class="comp-cell">Feature</div>
+            <div class="comp-cell comp-highlight">undiff</div>
+            <div class="comp-cell">Others</div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Multi-agent parallel review</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="cross">&#10005;</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Visual diff screenshots</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="cross">&#10005;</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Feature-grouped changes</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="cross">&#10005;</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Frontend-specialized</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="partial">generic</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Coverage analysis</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="partial">basic</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Security scanning</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="partial">basic</span></div>
+          </div>
+          <div class="comp-row">
+            <div class="comp-cell">Context views (feature/cov/sec)</div>
+            <div class="comp-cell comp-highlight"><span class="check">&#10003;</span></div>
+            <div class="comp-cell"><span class="cross">&#10005;</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROTOTYPE LAB -->
+    <section class="prototype" id="prototype">
+      <div class="container">
+        <div class="prototype-header reveal">
+          <div class="section-label">Prototype Lab</div>
+          <h2 class="section-title">
+            Don’t debate in comments.<br />
+            <span class="gradient">Simulate options, compare outcomes.</span>
+          </h2>
+          <p class="section-desc">
+            Inside the undiff GitHub bot on your PR, propose multiple implementation options for
+            functional or visual improvements. Each option runs in its own isolated environment,
+            executes tests, generates visual output, and returns a side-by-side report with clear
+            pros and cons.
+          </p>
+        </div>
+
+        <div class="proto-shell reveal reveal-delay-1">
+          <div class="proto-options" id="protoOptions">
+            <button class="proto-option active" data-variant="safe" type="button">
+              <div class="proto-head">
+                <span class="proto-name">Option A — Safe Refactor</span>
+                <span class="proto-tag safe">low risk</span>
+              </div>
+              <p>Minimal surface change, keeps existing structure, tight regression profile.</p>
+            </button>
+            <button class="proto-option" data-variant="fast" type="button">
+              <div class="proto-head">
+                <span class="proto-name">Option B — Performance Lean</span>
+                <span class="proto-tag fast">fast path</span>
+              </div>
+              <p>Prioritizes render speed and bundle size, moderate architecture changes.</p>
+            </button>
+            <button class="proto-option" data-variant="bold" type="button">
+              <div class="proto-head">
+                <span class="proto-name">Option C — UX Upgrade</span>
+                <span class="proto-tag bold">big impact</span>
+              </div>
+              <p>Reworks visual hierarchy and interaction flow for stronger user outcomes.</p>
+            </button>
+          </div>
+
+          <div class="proto-grid">
+            <div class="proto-panel">
+              <h3>Side-by-Side Visual Result</h3>
+              <div class="proto-compare" id="protoCompare">
+                <div class="proto-view">
+                  <div class="bar">Current PR branch</div>
+                  <div class="proto-canvas">
+                    <div class="mock-card">
+                      <div class="line" style="width: 78%; background: #4b4b62"></div>
+                      <div class="line" style="width: 55%; background: #3e3e54"></div>
+                      <div class="line" style="width: 88%; background: #4b4b62"></div>
+                    </div>
+                    <div class="mock-card">
+                      <div class="line" style="width: 64%; background: #3f3f55"></div>
+                      <div class="line" style="width: 82%; background: #4d4d64"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="proto-view">
+                  <div class="bar" id="protoOptionBar">Option A environment output</div>
+                  <div class="proto-canvas" id="protoCanvas"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="proto-panel">
+              <h3>Automated Review Verdict</h3>
+              <div class="proto-results" id="protoResults"></div>
+              <div class="proto-foot" id="protoFoot"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA / WAITLIST -->
+    <section class="final-cta" id="get-started">
+      <div class="container reveal">
+        <h2>Stop reviewing files.<br />Start reviewing <span class="gradient">features.</span></h2>
+        <p>Join the waitlist — be first to get access when we launch.</p>
+        <form class="waitlist-form" id="waitlistForm" novalidate>
+          <input
+            type="email"
+            id="waitlistEmail"
+            placeholder="you@company.com"
+            required
+            autocomplete="email"
+          />
+          <button class="btn-primary" type="submit" id="waitlistBtn">
+            <span>Get Early Access</span>
+          </button>
+        </form>
+        <div class="form-message" id="formMessage" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="container">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <img src="assets/logo-dark.svg" alt="undiff" style="height: 24px" />
+          <span>&copy; 2026 undiff</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">Docs</a>
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      /* ============ CURSOR GLOW ============ */
+      const glow = document.getElementById('cursorGlow');
+      let mouseX = 0,
+        mouseY = 0;
+      document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      });
+      (function updateGlow() {
+        glow.style.left = mouseX + 'px';
+        glow.style.top = mouseY + 'px';
+        requestAnimationFrame(updateGlow);
+      })();
+
+      /* ============ PARTICLES ============ */
+      const particlesEl = document.getElementById('particles');
+      for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = 8 + Math.random() * 16 + 's';
+        p.style.animationDelay = Math.random() * 10 + 's';
+        p.style.width = p.style.height = 1 + Math.random() * 2 + 'px';
+        const colors = ['#FF2D00', '#4939B0', '#339AF0', '#F84F2B'];
+        p.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particlesEl.appendChild(p);
+      }
+
+      /* ============ NAV SCROLL ============ */
+      const nav = document.getElementById('nav');
+      window.addEventListener(
+        'scroll',
+        () => {
+          nav.classList.toggle('scrolled', window.scrollY > 50);
+        },
+        { passive: true },
+      );
+
+      /* ============ SCROLL REVEAL ============ */
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+      );
+      document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+
+      /* ============ TERMINAL TYPING ============ */
+      /* ============ CONTEXT TABS ============ */
+      document.querySelectorAll('.context-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.context-tab').forEach((t) => t.classList.remove('active'));
+          document.querySelectorAll('.context-panel').forEach((p) => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.panel).classList.add('active');
+        });
+      });
+
+      /* ============ COUNTER ANIMATION ============ */
+      const counters = document.querySelectorAll('.hero-stat .num[data-count]');
+      const countObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const el = entry.target;
+              const target = parseInt(el.dataset.count);
+              let current = 0;
+              const step = () => {
+                current++;
+                el.textContent = current;
+                if (current < target) requestAnimationFrame(step);
+              };
+              step();
+              countObserver.unobserve(el);
+            }
+          });
+        },
+        { threshold: 0.5 },
+      );
+      counters.forEach((c) => countObserver.observe(c));
+
+      /* ============ SMOOTH ANCHOR SCROLL ============ */
+      document.querySelectorAll('a[href^="#"]').forEach((a) => {
+        a.addEventListener('click', (e) => {
+          const href = a.getAttribute('href');
+          if (!href || href === '#') return;
+          e.preventDefault();
+          const target = document.querySelector(href);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      /* ============ PROTOTYPE LAB INTERACTION ============ */
+      const protoData = {
+        safe: {
+          bar: 'Option A environment output',
+          lines: [
+            ['82%', '#5f70ff'],
+            ['58%', '#7d8aff'],
+            ['86%', '#9aa3ff'],
+            ['61%', '#5f70ff'],
+          ],
+          results: [
+            ['Automated tests', '41/41 pass', 'chip-good'],
+            ['Lighthouse score delta', '+2 points', 'chip-mid'],
+            ['Visual diff impact', 'Low (6% UI)', 'chip-good'],
+            ['Security signal', 'No new risks', 'chip-good'],
+          ],
+          foot: 'Best when you want predictable delivery with minimal behavior change. Recommended for release-critical branches.',
+        },
+        fast: {
+          bar: 'Option B environment output',
+          lines: [
+            ['90%', '#2cb5ff'],
+            ['67%', '#39c3ff'],
+            ['79%', '#63d0ff'],
+            ['52%', '#2cb5ff'],
+          ],
+          results: [
+            ['Automated tests', '39/41 pass', 'chip-mid'],
+            ['Lighthouse score delta', '+11 points', 'chip-good'],
+            ['Visual diff impact', 'Medium (18% UI)', 'chip-mid'],
+            ['Security signal', '1 warning to review', 'chip-mid'],
+          ],
+          foot: 'Best for performance-focused work. Highest speed gain, but requires follow-up on two failing edge tests before merge.',
+        },
+        bold: {
+          bar: 'Option C environment output',
+          lines: [
+            ['94%', '#ff7f63'],
+            ['72%', '#ff997e'],
+            ['91%', '#ffb29f'],
+            ['66%', '#ff7f63'],
+          ],
+          results: [
+            ['Automated tests', '37/41 pass', 'chip-risk'],
+            ['Lighthouse score delta', '+6 points', 'chip-mid'],
+            ['Visual diff impact', 'High (34% UI)', 'chip-risk'],
+            ['Security signal', 'No critical issues', 'chip-good'],
+          ],
+          foot: 'Best for major UX upgrades. Strong user-facing change, but needs design sign-off and additional regression coverage.',
+        },
+      };
+
+      function renderPrototype(variant) {
+        const data = protoData[variant];
+        const canvas = document.getElementById('protoCanvas');
+        const results = document.getElementById('protoResults');
+        const bar = document.getElementById('protoOptionBar');
+        const foot = document.getElementById('protoFoot');
+
+        if (!canvas || !results || !bar || !foot) return;
+
+        bar.textContent = data.bar;
+        canvas.innerHTML = data.lines
+          .map(
+            ([w, c], idx) =>
+              `<div class="mock-card" style="animation: fadeInUp .35s ease ${idx * 0.06}s both"><div class="line" style="width:${w};background:${c}"></div><div class="line" style="width:65%;background:#2f2f44"></div></div>`,
+          )
+          .join('');
+
+        results.innerHTML = data.results
+          .map(
+            ([label, value, klass], idx) =>
+              `<div class="result-row" style="animation: fadeInUp .3s ease ${idx * 0.05}s both"><span class="result-label">${label}</span><span class="result-chip ${klass}">${value}</span></div>`,
+          )
+          .join('');
+
+        foot.textContent = data.foot;
+      }
+
+      document.querySelectorAll('.proto-option').forEach((option) => {
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.proto-option').forEach((o) => o.classList.remove('active'));
+          option.classList.add('active');
+          renderPrototype(option.dataset.variant);
+        });
+      });
+
+      renderPrototype('safe');
+
+      /* ============ WAITLIST FORM (Supabase) ============ */
+      // SETUP: Replace these with your Supabase project values.
+      // 1. Create a Supabase project at https://supabase.com (free tier)
+      // 2. Create a table called "waitlist" with columns:
+      //    - id (int8, primary key, auto-generated)
+      //    - email (text, unique)
+      //    - created_at (timestamptz, default now())
+      // 3. Enable Row Level Security (RLS) and add a policy:
+      //    CREATE POLICY "Allow anonymous inserts" ON waitlist
+      //      FOR INSERT WITH CHECK (true);
+      //    (No SELECT/UPDATE/DELETE policies — data stays private)
+      // 4. Paste your project URL and anon key below,
+      //    or set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
+      //    and use the Vite HTML env plugin to inject them at build time.
+      const SUPABASE_URL = '__VITE_SUPABASE_URL__';
+      const SUPABASE_ANON_KEY = '__VITE_SUPABASE_ANON_KEY__';
+
+      const waitlistForm = document.getElementById('waitlistForm');
+      const waitlistEmail = document.getElementById('waitlistEmail');
+      const waitlistBtn = document.getElementById('waitlistBtn');
+      const formMessage = document.getElementById('formMessage');
+
+      waitlistForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = waitlistEmail.value.trim().toLowerCase();
+
+        // Basic email validation
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          formMessage.textContent = 'Please enter a valid email address.';
+          formMessage.className = 'form-message error';
+          return;
+        }
+
+        waitlistBtn.disabled = true;
+        waitlistBtn.querySelector('span').textContent = 'Submitting…';
+        formMessage.textContent = '';
+        formMessage.className = 'form-message';
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          if (res.ok) {
+            formMessage.textContent = "You're on the list! We'll be in touch soon.";
+            formMessage.className = 'form-message success';
+            waitlistEmail.value = '';
+            waitlistBtn.querySelector('span').textContent = 'You\'re In ✓';
+          } else if (res.status === 409) {
+            formMessage.textContent = "You're already on the waitlist!";
+            formMessage.className = 'form-message success';
+            waitlistBtn.querySelector('span').textContent = 'Get Early Access';
+            waitlistBtn.disabled = false;
+          } else {
+            throw new Error('Request failed');
+          }
+        } catch (err) {
+          formMessage.textContent = 'Something went wrong. Please try again.';
+          formMessage.className = 'form-message error';
+          waitlistBtn.querySelector('span').textContent = 'Get Early Access';
+          waitlistBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

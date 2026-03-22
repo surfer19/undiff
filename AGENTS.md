@@ -1,4 +1,4 @@
-# Sage — Agent Context
+# Undiff — Agent Context
 
 ## Project
 Multi-agent code review system for GitHub PRs. Monorepo (pnpm workspaces + Turborepo).

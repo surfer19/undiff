@@ -8,7 +8,7 @@ export const SANDBOX_TIMEOUT_MS = 120_000;
 export const WEBHOOK_ACK_TIMEOUT_MS = 10_000;
 
 /** Bot comment prefix for identification */
-export const BOT_COMMENT_PREFIX = '<!-- sage -->';
+export const BOT_COMMENT_PREFIX = '<!-- undiff -->';
 
 /** Regex to parse /explore commands from PR review comments */
 export const EXPLORE_COMMAND_REGEX = /^\/explore\s+["""\u201C\u201D](.+)["""\u201C\u201D]\s*$/im;

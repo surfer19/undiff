@@ -1,8 +1,8 @@
 {
-  "name": "sage",
+  "name": "undiff",
   "version": "0.1.0",
   "private": true,
-  "description": "Sage - Multi-Agent Solution Explorer for GitHub Code Review",
+  "description": "Undiff - Multi-Agent Solution Explorer for GitHub Code Review",
   "scripts": {
     "dev": "turbo dev",
     "dev:up": "podman compose --profile tunnel up -d --wait && turbo dev",
@@ -12,9 +12,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "turbo typecheck",
-    "db:generate": "turbo db:generate --filter=@sage/api",
-    "db:migrate": "turbo db:migrate --filter=@sage/api",
-    "db:studio": "pnpm --filter @sage/api db:studio"
+    "db:generate": "turbo db:generate --filter=@undiff/api",
+    "db:migrate": "turbo db:migrate --filter=@undiff/api",
+    "db:studio": "pnpm --filter @undiff/api db:studio"
   },
   "keywords": [
     "code-review",

@@ -1,4 +1,4 @@
-# @sage/web
+# @undiff/web
 
 > Comparison page UI — coming in P4.
 

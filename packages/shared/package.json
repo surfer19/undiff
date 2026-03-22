@@ -1,8 +1,8 @@
 {
-  "name": "@sage/shared",
+  "name": "@undiff/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared types and utilities for Sage",
+  "description": "Shared types and utilities for Undiff",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
