@@ -1969,7 +1969,7 @@
             <span>Get Early Access</span>
           </button>
         </form>
-        <div class="form-message" id="formMessage"></div>
+        <div class="form-message" id="formMessage" aria-live="polite"></div>
       </div>
     </section>
 
@@ -2076,8 +2076,10 @@
       /* ============ SMOOTH ANCHOR SCROLL ============ */
       document.querySelectorAll('a[href^="#"]').forEach((a) => {
         a.addEventListener('click', (e) => {
+          const href = a.getAttribute('href');
+          if (!href || href === '#') return;
           e.preventDefault();
-          const target = document.querySelector(a.getAttribute('href'));
+          const target = document.querySelector(href);
           if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
@@ -2182,9 +2184,11 @@
       //    CREATE POLICY "Allow anonymous inserts" ON waitlist
       //      FOR INSERT WITH CHECK (true);
       //    (No SELECT/UPDATE/DELETE policies — data stays private)
-      // 4. Paste your project URL and anon key below.
-      const SUPABASE_URL = 'https://ykhvvcawtbtlxqndfekq.supabase.co';
-      const SUPABASE_ANON_KEY = 'sb_publishable_jzJNErnUNAAO4TtRd98sAQ_r4x2uV8m';
+      // 4. Paste your project URL and anon key below,
+      //    or set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
+      //    and use the Vite HTML env plugin to inject them at build time.
+      const SUPABASE_URL = '__VITE_SUPABASE_URL__';
+      const SUPABASE_ANON_KEY = '__VITE_SUPABASE_ANON_KEY__';
 
       const waitlistForm = document.getElementById('waitlistForm');
       const waitlistEmail = document.getElementById('waitlistEmail');
