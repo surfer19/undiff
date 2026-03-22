@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 200" width="740" height="200" role="img" aria-label="undiff logo">
+  <defs>
+    <linearGradient id="undiffBrand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF2D00"/>
+      <stop offset="1" stop-color="#4939B0"/>
+    </linearGradient>
+    <linearGradient id="undiffBlue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#339AF0"/>
+      <stop offset="1" stop-color="#5AAEFF"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(24 38)">
+    <rect x="0" y="0" width="116" height="116" rx="30" fill="#09080F" stroke="url(#undiffBrand)" stroke-width="4"/>
+    <path d="M30 84L84 30" stroke="url(#undiffBrand)" stroke-width="9" stroke-linecap="round"/>
+    <path d="M31 31L85 85" stroke="#339AF0" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="31" cy="31" r="6" fill="#FAFAFA"/>
+    <circle cx="85" cy="85" r="6" fill="#FAFAFA"/>
+  </g>
+
+  <text x="174" y="128" font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace" font-size="72" font-weight="700" fill="#FAFAFA" letter-spacing="2">un</text>
+  <text x="336" y="128" font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace" font-size="72" font-weight="700" fill="#FAFAFA" opacity="0.45" letter-spacing="2">diff</text>
+  <line x1="336" y1="112" x2="548" y2="112" stroke="url(#undiffBlue)" stroke-width="4" stroke-linecap="round"/>
+</svg>
