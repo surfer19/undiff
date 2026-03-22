@@ -1538,6 +1538,19 @@
         .comp-table {
           font-size: 13px;
         }
+        .comp-cell {
+          padding: 14px 12px;
+        }
+        .comp-highlight {
+          border-left: 1px solid #4939b0;
+          border-right: 1px solid #4939b0;
+        }
+        .comp-row.header .comp-highlight {
+          border-top: 1px solid #4939b0;
+        }
+        .comp-row:last-child .comp-highlight {
+          border-bottom: 1px solid #4939b0;
+        }
         .hero-stats {
           gap: 24px;
         }
@@ -1565,6 +1578,15 @@
           flex-direction: column;
           gap: 16px;
         }
+        .comp-table {
+          font-size: 12px;
+        }
+        .comp-cell {
+          padding: 12px 8px;
+        }
+        .comp-row {
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+        }
       }
     </style>
   </head>
@@ -1578,13 +1600,15 @@
     <!-- NAV -->
     <nav id="nav">
       <div class="container">
-        <img src="assets/logo-dark.svg" alt="undiff" class="nav-logo" />
+        <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">
+          <img src="assets/logo-dark.svg" alt="undiff" class="nav-logo" />
+        </a>
         <div class="nav-links">
           <a href="#features">Features</a>
           <a href="#how">How It Works</a>
           <a href="#compare">Compare</a>
           <a href="#prototype">Prototype Lab</a>
-          <a href="https://docs.undiff.dev">Docs</a>
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">Docs</a>
           <button class="nav-cta" onclick="window.location.href = '#get-started'">
             Get Early Access
           </button>
@@ -1603,8 +1627,7 @@
           </div>
           <h1>Code review<br />with <span class="gradient">full context.</span></h1>
           <p class="hero-sub">
-            Spawn multiple AI agents in parallel to analyze features, coverage, security, and visual
-            diffs — not just line-by-line chat.
+            AI agents explore multiple solutions to every PR problem, show you side-by-side trade-offs, and iterate with you until the best option ships — not just comments, real working alternatives.
           </p>
           <div class="hero-ctas">
             <button class="btn-primary" onclick="window.location.href = '#get-started'">
@@ -1958,11 +1981,8 @@
           <span>&copy; 2026 undiff</span>
         </div>
         <div class="footer-links">
-          <a href="#">Docs</a>
-          <a href="#">GitHub</a>
-          <a href="#">Twitter</a>
-          <a href="#">Privacy</a>
-          <a href="#">Terms</a>
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">Docs</a>
+          <a href="https://github.com/surfer19/undiff" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
     </footer>
